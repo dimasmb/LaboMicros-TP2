@@ -12,23 +12,23 @@
 #include "MK64F12.h"
 #include "hardware.h"
 #include "board.h"
-
 /*******************************************************************************
  * CONSTANT AND MACRO DEFINITIONS USING #DEFINE
  ******************************************************************************/
 
-
+#define ALT5 5
+#define ALT2 2
 
 /*******************************************************************************
  * ENUMERATIONS AND STRUCTURES AND TYPEDEFS
  ******************************************************************************/
 enum{
-  I2C0_SCL_ACC = PORTNUM2PIN(5, 24),
-  I2C0_SDA_ACC = PORTNUM2PIN(5, 25),
-  I2C0_SCL_EXT = PORTNUM2PIN(2, 2),
-  I2C0_SDA_EXT = PORTNUM2PIN(2, 3),
-  I2C1_SCL = PORTNUM2PIN(2, 10),
-  I2C1_SDA = PORTNUM2PIN(2, 11),
+  I2C0_SCL_ACC = PORTNUM2PIN(PE, 24),
+  I2C0_SDA_ACC = PORTNUM2PIN(PE, 25),
+  I2C0_SCL_EXT = PORTNUM2PIN(PB, 2),
+  I2C0_SDA_EXT = PORTNUM2PIN(PB, 3),
+  I2C1_SCL = PORTNUM2PIN(PC, 10),
+  I2C1_SDA = PORTNUM2PIN(PC, 11),
 };
 
 // typedef enum{
@@ -84,27 +84,31 @@ void init_I2C(i2cx num)
   if(!num)
   {
     //Para el I2C0, configuro los pines PTE24 y 25 que son los del acelerómetro
-    PORTB->PCR[I2C0_SCL_ACC] = 0;
-    PORTB->PCR[I2C0_SCL_ACC] |= PORT_PCR_MUX(5);
+    PORTB->PCR[PIN2NUM(I2C0_SCL_ACC)] = 0;
+    PORTB->PCR[PIN2NUM(I2C0_SCL_ACC)] |= PORT_PCR_MUX(ALT5);
+    PORTB->PCR[PIN2NUM(I2C0_SCL_ACC)] |= PORT_PCR_MUX(ALT5);
     
-    PORTB->PCR[I2C0_SDA_ACC] = 0;
-    PORTB->PCR[I2C0_SDA_ACC] |= PORT_PCR_MUX(5);
+    PORTB->PCR[PIN2NUM(I2C0_SDA_ACC)] = 0;
+    PORTB->PCR[PIN2NUM(I2C0_SDA_ACC)] |= PORT_PCR_MUX(ALT5);
+    PORTB->PCR[PIN2NUM(I2C0_SDA_ACC)] |= PORT_PCR_MUX(ALT5);
+
+
 
     //configuro los pines PTB2 y 3 para veros externamente
-    PORTB->PCR[I2C0_SCL_EXT] = 0;
-    PORTB->PCR[I2C0_SCL_EXT] |= PORT_PCR_MUX(2);
+    PORTB->PCR[PIN2NUM(I2C0_SCL_EXT)] = 0;
+    PORTB->PCR[PIN2NUM(I2C0_SCL_EXT)] |= PORT_PCR_MUX(ALT2);
     
-    PORTB->PCR[I2C0_SDA_EXT] = 0;
-    PORTB->PCR[I2C0_SDA_EXT] |= PORT_PCR_MUX(2);
+    PORTB->PCR[PIN2NUM(I2C0_SDA_EXT)] = 0;
+    PORTB->PCR[PIN2NUM(I2C0_SDA_EXT)] |= PORT_PCR_MUX(ALT2);
   }
   else
   {
-    //Para el I2C0, configuro los pines PTC10 y 11
+    //Para el I2C1, configuro los pines PTC10 y 11
     PORTC->PCR[PIN2NUM(I2C1_SCL)] = 0;
-    PORTC->PCR[PIN2NUM(I2C1_SCL)] |= PORT_PCR_MUX(2);
+    PORTC->PCR[PIN2NUM(I2C1_SCL)] |= PORT_PCR_MUX(ALT2);
     
     PORTC->PCR[PIN2NUM(I2C1_SDA)] = 0;
-    PORTC->PCR[PIN2NUM(I2C1_SDA)] |= PORT_PCR_MUX(2);
+    PORTC->PCR[PIN2NUM(I2C1_SDA)] |= PORT_PCR_MUX(ALT2);
   }
 
   /*Seteo el baudrate (I2C baud rate = I2C module clock speed (Hz)/(mul × SCL divider))
