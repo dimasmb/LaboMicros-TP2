@@ -23,10 +23,12 @@
  * ENUMERATIONS AND STRUCTURES AND TYPEDEFS
  ******************************************************************************/
 enum{
-  I2C0_SCL = PORTNUM2PIN(5, 24),
-  I2C0_SDA = PORTNUM2PIN(5, 25),
+  I2C0_SCL_ACC = PORTNUM2PIN(5, 24),
+  I2C0_SDA_ACC = PORTNUM2PIN(5, 25),
+  I2C0_SCL_EXT = PORTNUM2PIN(2, 2),
+  I2C0_SDA_EXT = PORTNUM2PIN(2, 3),
   I2C1_SCL = PORTNUM2PIN(2, 10),
-  I2C1_SDA = PORTNUM2PIN(2, 11)
+  I2C1_SDA = PORTNUM2PIN(2, 11),
 };
 
 // typedef enum{
@@ -65,6 +67,7 @@ static uint8_t* data;
 static uint8_t* Rdata;
 //static uint8_t W_cant_bytes;
 static uint8_t R_cant_bytes;
+static bool W_error = false;
 
 
 /*******************************************************************************
@@ -81,11 +84,18 @@ void init_I2C(i2cx num)
   if(!num)
   {
     //Para el I2C0, configuro los pines PTE24 y 25 que son los del acelerómetro
-    PORTB->PCR[I2C0_SCL] = 0;
-    PORTB->PCR[I2C0_SCL] |= PORT_PCR_MUX(5);
+    PORTB->PCR[I2C0_SCL_ACC] = 0;
+    PORTB->PCR[I2C0_SCL_ACC] |= PORT_PCR_MUX(5);
     
-    PORTB->PCR[I2C0_SDA] = 0;
-    PORTB->PCR[I2C0_SDA] |= PORT_PCR_MUX(5);
+    PORTB->PCR[I2C0_SDA_ACC] = 0;
+    PORTB->PCR[I2C0_SDA_ACC] |= PORT_PCR_MUX(5);
+
+    //configuro los pines PTB2 y 3 para veros externamente
+    PORTB->PCR[I2C0_SCL_EXT] = 0;
+    PORTB->PCR[I2C0_SCL_EXT] |= PORT_PCR_MUX(2);
+    
+    PORTB->PCR[I2C0_SDA_EXT] = 0;
+    PORTB->PCR[I2C0_SDA_EXT] |= PORT_PCR_MUX(2);
   }
   else
   {
@@ -121,6 +131,7 @@ void i2cSimpleTransaction(uint8_t address, RW_mode mode, uint8_t bytes, uint8_t*
   cant_bytes = bytes;
   data = buffer;
 
+  W_error = false;
   I2C_x[i2c_num]->C1 |= I2C_C1_MST(true);
   I2C_x[i2c_num]->C1 |= I2C_C1_TX(true);
 
@@ -135,12 +146,22 @@ void i2cWandRTransaction(uint8_t address, uint8_t writeBytes, uint8_t* writeBuff
   Rdata = readBuffer;
   rstart = true;
 
+  W_error = false;
   I2C_x[i2c_num]->C1 |= I2C_C1_MST(true);
   I2C_x[i2c_num]->C1 |= I2C_C1_TX(true);
 
   I2C_x[i2c_num]->D = (address<<1) + MODE_W;
 }
 
+bool i2c_is_busy(void)
+{
+  return (I2C_x[i2c_num]->S & I2C_S_BUSY_MASK);
+}
+
+bool i2c_write_check(void)
+{
+  return !W_error;
+}
 /*******************************************************************************
  *******************************************************************************
                         LOCAL FUNCTION DEFINITIONS
@@ -150,7 +171,7 @@ void i2cWandRTransaction(uint8_t address, uint8_t writeBytes, uint8_t* writeBuff
 
 __ISR__ I2C0_IRQHandler(void)
 {
-  I2C0->S |= I2C_S_IICIF(true); //cear interrupt flag
+  I2C0->S |= I2C_S_IICIF(true); //clear interrupt flag
 
   switch(rw_mode)
   {
@@ -166,7 +187,7 @@ __ISR__ I2C0_IRQHandler(void)
         I2C0->C1 |= I2C_C1_TXAK_MASK; //seteo como NACK
       }
       *data = I2C0->D;  //Read
-      data++;
+      //data++;
       cant_bytes--;
       break;
     case MODE_W:
@@ -197,6 +218,10 @@ __ISR__ I2C0_IRQHandler(void)
         }
         else
         {
+          if(cant_bytes)
+          {
+            W_error = true;
+          }
           I2C0->C1 |= I2C_C1_MST(false);
         }
       }
