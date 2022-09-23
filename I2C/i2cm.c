@@ -68,6 +68,7 @@ static uint8_t* Rdata;
 //static uint8_t W_cant_bytes;
 static uint8_t R_cant_bytes;
 static bool W_error = false;
+static uint8_t dev_address;
 
 
 /*******************************************************************************
@@ -118,8 +119,8 @@ void init_I2C(i2cx num)
   I2C_x[i2c_num]->F |= I2C_F_MULT(0);
   I2C_x[i2c_num]->F |= I2C_F_ICR(0x17);
 
-  I2C_x[i2c_num]->C1 |= I2C_C1_IICIE(true); //enable interrputs
-  I2C_x[i2c_num]->C1 |= I2C_C1_IICEN(true); //enable i2c
+  I2C_x[i2c_num]->C1 |= I2C_C1_IICIE_MASK; //enable interrputs
+  I2C_x[i2c_num]->C1 |= I2C_C1_IICEN_MASK; //enable i2c
 
   if(!num) NVIC_EnableIRQ(I2C0_IRQn);
   else NVIC_EnableIRQ(I2C1_IRQn);
@@ -130,10 +131,11 @@ void i2cSimpleTransaction(uint8_t address, RW_mode mode, uint8_t bytes, uint8_t*
   rw_mode = mode;
   cant_bytes = bytes;
   data = buffer;
+  dev_address = address;
 
   W_error = false;
-  I2C_x[i2c_num]->C1 |= I2C_C1_MST(true);
-  I2C_x[i2c_num]->C1 |= I2C_C1_TX(true);
+  I2C_x[i2c_num]->C1 |= I2C_C1_MST_MASK;  //START
+  I2C_x[i2c_num]->C1 |= I2C_C1_TX_MASK;   //TX = 1
 
   I2C_x[i2c_num]->D = (address<<1) + mode;
 }
@@ -144,13 +146,14 @@ void i2cWandRTransaction(uint8_t address, uint8_t writeBytes, uint8_t* writeBuff
   R_cant_bytes = readBytes;
   data = writeBuffer;
   Rdata = readBuffer;
+  dev_address = address;
   rstart = true;
 
   W_error = false;
-  I2C_x[i2c_num]->C1 |= I2C_C1_MST(true);
-  I2C_x[i2c_num]->C1 |= I2C_C1_TX(true);
+  I2C_x[i2c_num]->C1 |= I2C_C1_MST_MASK;  //START
+  I2C_x[i2c_num]->C1 |= I2C_C1_TX_MASK;   //TX = 1
 
-  I2C_x[i2c_num]->D = (address<<1) + MODE_W;
+  I2C_x[i2c_num]->D = (address<<1) + MODE_W;  //address + W/R
 }
 
 bool i2c_is_busy(void)
@@ -171,23 +174,23 @@ bool i2c_write_check(void)
 
 __ISR__ I2C0_IRQHandler(void)
 {
-  I2C0->S |= I2C_S_IICIF(true); //clear interrupt flag
+  I2C0->S |= I2C_S_IICIF_MASK; //clear interrupt flag
 
   switch(rw_mode)
   {
     case MODE_R:
       //modo Read/RX
-      I2C0->C1 |= I2C_C1_TX(false);
+      I2C0->C1 &= ~I2C_C1_TX_MASK;  //TX = 0 (Read)
       if(!cant_bytes) //El byte que leí recien era el último?
       {
-        I2C0->C1 |= I2C_C1_MST(false);
+        I2C0->C1 &= I2C_C1_MST_MASK;  //STOP
       }
       else if(cant_bytes == 1)  //Si estoy en el último
       {
-        I2C0->C1 |= I2C_C1_TXAK_MASK; //seteo como NACK
+        I2C0->C1 |= I2C_C1_TXAK_MASK; //NACK
       }
-      *data = I2C0->D;  //Read
-      //data++;
+      *data = I2C0->D;  //Read action
+      //data++;   //tiene auto-inc
       cant_bytes--;
       break;
     case MODE_W:
@@ -195,34 +198,35 @@ __ISR__ I2C0_IRQHandler(void)
       //I2C0->C1 |= I2C_C1_TX(true);  //No hace falta setearlo porque viene seteado desde el address cycle
       if(!cant_bytes) //El byte que transmití recien era el último?
       {
-        if(rstart)
+        if(rstart)    //Si estoy en Repeat Start
         {
           I2C0->C1 |= I2C_C1_RSTA_MASK;  //RST=1
-          I2C0->C1 |= I2C_C1_TX(false); //switch to RX
+          I2C0->C1 &= ~I2C_C1_TX_MASK; //switch to RX (clear TX bit)
           cant_bytes = R_cant_bytes;
           data = Rdata;
           rstart=false;
+          I2C0->D = (dev_address<<1) + MODE_W;  //Mando address para empezar el Read
         }
         else
-        {
-          I2C0->C1 |= I2C_C1_MST(false);
+        {   //Si no estoy en Repeat Start, termina
+          I2C0->C1 &= ~I2C_C1_MST_MASK;   //STOP
         }
       }
       else
       {
-        if(!(I2C0->S & I2C_S_RXAK_MASK))
+        if(!(I2C0->S & I2C_S_RXAK_MASK))  //ACK?
         {
-          I2C0->D = *data;  //Write
-          data++;
+          I2C0->D = *data;  //Write action
+          //data++;
           cant_bytes--;
         }
         else
         {
-          if(cant_bytes)
+          if(cant_bytes)  //Si recibio NACK y no termino
           {
-            W_error = true;
+            W_error = true; //Levanta flag de error
           }
-          I2C0->C1 |= I2C_C1_MST(false);
+          I2C0->C1 &= ~I2C_C1_MST_MASK; //STOP
         }
       }
       break;
@@ -233,46 +237,64 @@ __ISR__ I2C0_IRQHandler(void)
  
 __ISR__ I2C1_IRQHandler(void)
 {
-  I2C1->S |= I2C_S_IICIF(true);
+  I2C1->S |= I2C_S_IICIF_MASK;
 
-  if(rw_mode)
-   {
-     //modo Read/RX
-     I2C1->C1 |= I2C_C1_TX(false);
-     if(!cant_bytes) //El byte que leí recien era el último?
-     {
-       I2C1->C1 |= I2C_C1_MST(false);
-     }
-     else if(cant_bytes == 1)  //Si estoy en el último
-     {
-       I2C1->C1 |= I2C_C1_TXAK_MASK; //seteo como NACK
-     }
-     *data = I2C1->D;  //Read
-     data++;
-     cant_bytes--;
-   }
-   else
-   {
-     //modo Write/TX
-     //I2C0->C1 |= I2C_C1_TX(true);  //No hace falta setearlo porque viene seteado desde el address cycle
-     if(!cant_bytes) //El byte que transmití recien era el último?
-     {
-       I2C1->C1 |= I2C_C1_MST(false);
-     }
-     else
-     {
-       if(!(I2C1->S & I2C_S_RXAK_MASK))
-       {
-         I2C1->D = *data;  //Write
-         data++;
-         cant_bytes--;
-       }
-       else
-       {
-         I2C1->C1 |= I2C_C1_MST(false);
-       }
-     }
-
-   }
+  switch(rw_mode)
+  {
+    case MODE_R:
+      //modo Read/RX
+      I2C1->C1 &= ~I2C_C1_TX_MASK;  //TX = 0 (Read)
+      if(!cant_bytes) //El byte que leí recien era el último?
+      {
+        I2C1->C1 &= I2C_C1_MST_MASK;  //STOP
+      }
+      else if(cant_bytes == 1)  //Si estoy en el último
+      {
+        I2C1->C1 |= I2C_C1_TXAK_MASK; //NACK
+      }
+      *data = I2C1->D;  //Read action
+      //data++;   //tiene auto-inc
+      cant_bytes--;
+      break;
+    case MODE_W:
+      //modo Write/TX
+      //I2C0->C1 |= I2C_C1_TX(true);  //No hace falta setearlo porque viene seteado desde el address cycle
+      if(!cant_bytes) //El byte que transmití recien era el último?
+      {
+        if(rstart)    //Si estoy en Repeat Start
+        {
+          I2C1->C1 |= I2C_C1_RSTA_MASK;  //RST=1
+          I2C1->C1 &= ~I2C_C1_TX_MASK; //switch to RX (clear TX bit)
+          cant_bytes = R_cant_bytes;
+          data = Rdata;
+          rstart=false;
+          I2C1->D = (dev_address<<1) + MODE_W;  //Mando address para empezar el Read
+        }
+        else
+        {   //Si no estoy en Repeat Start, termina
+          I2C1->C1 &= ~I2C_C1_MST_MASK;   //STOP
+        }
+      }
+      else
+      {
+        if(!(I2C1->S & I2C_S_RXAK_MASK))  //ACK?
+        {
+          I2C1->D = *data;  //Write action
+          //data++;
+          cant_bytes--;
+        }
+        else
+        {
+          if(cant_bytes)  //Si recibio NACK y no termino
+          {
+            W_error = true; //Levanta flag de error
+          }
+          I2C1->C1 &= ~I2C_C1_MST_MASK; //STOP
+        }
+      }
+      break;
+    default:
+    	break;
+  }
 }
  
