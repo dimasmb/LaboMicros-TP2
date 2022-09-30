@@ -62,14 +62,14 @@ int accel_mag_init(void)
 {
   init_I2C(I2C_0);
   uint8_t databyte;
-  uint8_t reg;
+  uint8_t reg8;
   /* **************************
     read and check the FXOS8700CQ WHOAMI register
   *********************/
-  //La inicializacion deberia ser bloqueante
-  reg = FXOS8700CQ_WHOAMI;
-  i2cWandRTransaction((uint8_t)FXOS8700CQ_SLAVE_ADDR, 1, &reg, 1, &databyte);
+  reg8 = FXOS8700CQ_WHOAMI;
+  i2cWandRTransaction((uint8_t)FXOS8700CQ_SLAVE_ADDR, 1, &reg8, 1, &databyte);
   while(i2c_is_busy());
+
   if((!i2c_write_check()) || (databyte != FXOS8700CQ_WHOAMI_VAL))
   {
     return (init_ERROR);
@@ -84,9 +84,9 @@ int accel_mag_init(void)
   // [7-1] = 0000 000 --> Sleep Rate: 50Hz ; Output Data Rate (ODR): 800Hz (400Hz for Hybrid)
   // [0]: active = 0 --> stanby mode
   databyte = 0x00;
-  reg = FXOS8700CQ_CTRL_REG1;
-  i2cWandRTransaction((uint8_t)FXOS8700CQ_SLAVE_ADDR, 1, &reg, 1, &databyte);
-  while(i2c_is_busy()){};
+  uint8_t reg16[] = {FXOS8700CQ_CTRL_REG1, databyte};
+  i2cSimpleTransaction((uint8_t)FXOS8700CQ_SLAVE_ADDR, MODE_W, 2, &(reg16[0]));
+  while(i2c_is_busy());
 
   //*************************************************************
   /*******************
@@ -106,9 +106,10 @@ int accel_mag_init(void)
   CMP_X_MSB (0x39), CMP_X_LSB (0x3A), CMP_Y_MSB (0x3B), CMP_Y_LSB (0x3C), CMP_Z_MSB (0x3D), and CMP_Z_LSB (0x3E).
   */
   databyte = 0x1F;
-  reg = FXOS8700CQ_CTRL_REG1;
-  i2cWandRTransaction((uint8_t)FXOS8700CQ_SLAVE_ADDR, 1, &reg, 1, &databyte);
-  while(i2c_is_busy()){};
+  reg16[0] = FXOS8700CQ_M_CTRL_REG1;
+  reg16[1] = databyte;
+  i2cSimpleTransaction((uint8_t)FXOS8700CQ_SLAVE_ADDR, MODE_W, 2, reg16);
+  while(i2c_is_busy());
 
   //*************************************************************
   /*******************
@@ -123,9 +124,11 @@ int accel_mag_init(void)
   // [2]: m_maxmin_rst=0 --> No reset sequence is active
   // [1-0]: m_rst_cnt=00 --> to enable magnetic reset each cycle
   databyte = 0x20;
-  reg = FXOS8700CQ_M_CTRL_REG2;
-  i2cWandRTransaction((uint8_t)FXOS8700CQ_SLAVE_ADDR, 1, &reg, 1, &databyte);
-  while(i2c_is_busy()){};
+  // reg16 = (FXOS8700CQ_M_CTRL_REG2<<8) + databyte;
+  reg16[0] = FXOS8700CQ_M_CTRL_REG2;
+  reg16[1] = databyte;
+  i2cSimpleTransaction((uint8_t)FXOS8700CQ_SLAVE_ADDR, MODE_W, 2, &(reg16[0]));
+  while(i2c_is_busy());
 
   //*************************************************************
   /*******************/
@@ -138,9 +141,11 @@ int accel_mag_init(void)
   // [2]: reserved
   // [1-0]: fs=01 --> for accelerometer range of +/-4g range with 0.488mg/LSB
   databyte = 0x01;
-  reg = FXOS8700CQ_XYZ_DATA_CFG;
-  i2cWandRTransaction((uint8_t)FXOS8700CQ_SLAVE_ADDR, 1, &reg, 1, &databyte);
-  while(i2c_is_busy()){};
+  // reg16 = (FXOS8700CQ_XYZ_DATA_CFG<<8) + databyte;
+  reg16[0] = FXOS8700CQ_XYZ_DATA_CFG;
+  reg16[1] = databyte;
+  i2cSimpleTransaction((uint8_t)FXOS8700CQ_SLAVE_ADDR, MODE_W, 2, &(reg16[0]));
+  while(i2c_is_busy());
 
   //*************************************************************
   /*******************
@@ -153,9 +158,11 @@ int accel_mag_init(void)
   // [1]: f_read=0 --> for normal 16 bit reads
   // [0]: active=1 --> to take the part out of standby and enable sampling
   databyte = 0x0D;
-  reg = FXOS8700CQ_CTRL_REG1;
-  i2cWandRTransaction((uint8_t)FXOS8700CQ_SLAVE_ADDR, 1, &reg, 1, &databyte);
-  while(i2c_is_busy()){};
+  // reg16 = (FXOS8700CQ_CTRL_REG1<<8) + databyte;
+  reg16[0] = FXOS8700CQ_CTRL_REG1;
+  reg16[1] = databyte;
+  i2cSimpleTransaction((uint8_t)FXOS8700CQ_SLAVE_ADDR, MODE_W, 2, &(reg16[0]));
+  while(i2c_is_busy());
   // normal return
   return (init_OK);
 }

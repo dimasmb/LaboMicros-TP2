@@ -62,9 +62,9 @@ static i2cx i2c_num;
 static RW_mode rw_mode;
 static bool rstart = false;
 static uint32_t cant_bytes;
-static uint8_t* data;
+static uint8_t* data = NULL;
 //static uint8_t* Wdata;
-static uint8_t* Rdata;
+static uint8_t* Rdata = NULL;
 //static uint8_t W_cant_bytes;
 static uint8_t R_cant_bytes;
 static bool W_error = false;
@@ -85,31 +85,35 @@ void init_I2C(i2cx num)
   if(!num)
   {
     //Para el I2C0, configuro los pines PTE24 y 25 que son los del acelerómetro
-    PORTB->PCR[PIN2NUM(I2C0_SCL_ACC)] = 0;
-    PORTB->PCR[PIN2NUM(I2C0_SCL_ACC)] |= PORT_PCR_MUX(ALT5);
-    PORTB->PCR[PIN2NUM(I2C0_SCL_ACC)] |= PORT_PCR_MUX(ALT5);
+    PORTE->PCR[PIN2NUM(I2C0_SCL_ACC)] = 0;
+    PORTE->PCR[PIN2NUM(I2C0_SCL_ACC)] |= PORT_PCR_MUX(ALT5);
+    PORTE->PCR[PIN2NUM(I2C0_SCL_ACC)] |= (PORT_PCR_ODE_MASK | PORT_PCR_PE_MASK | PORT_PCR_PS_MASK);
     
-    PORTB->PCR[PIN2NUM(I2C0_SDA_ACC)] = 0;
-    PORTB->PCR[PIN2NUM(I2C0_SDA_ACC)] |= PORT_PCR_MUX(ALT5);
-    PORTB->PCR[PIN2NUM(I2C0_SDA_ACC)] |= PORT_PCR_MUX(ALT5);
+    PORTE->PCR[PIN2NUM(I2C0_SDA_ACC)] = 0;
+    PORTE->PCR[PIN2NUM(I2C0_SDA_ACC)] |= PORT_PCR_MUX(ALT5);
+    PORTE->PCR[PIN2NUM(I2C0_SDA_ACC)] |= (PORT_PCR_ODE_MASK | PORT_PCR_PE_MASK | PORT_PCR_PS_MASK);
 
 
 
     //configuro los pines PTB2 y 3 para veros externamente
-    PORTB->PCR[PIN2NUM(I2C0_SCL_EXT)] = 0;
-    PORTB->PCR[PIN2NUM(I2C0_SCL_EXT)] |= PORT_PCR_MUX(ALT2);
+    // PORTB->PCR[PIN2NUM(I2C0_SCL_EXT)] = 0;
+    // PORTB->PCR[PIN2NUM(I2C0_SCL_EXT)] |= PORT_PCR_MUX(ALT2);
+    // PORTB->PCR[PIN2NUM(I2C0_SCL_EXT)] |= (PORT_PCR_ODE_MASK | PORT_PCR_PE_MASK | PORT_PCR_PS_MASK);
     
-    PORTB->PCR[PIN2NUM(I2C0_SDA_EXT)] = 0;
-    PORTB->PCR[PIN2NUM(I2C0_SDA_EXT)] |= PORT_PCR_MUX(ALT2);
+    // PORTB->PCR[PIN2NUM(I2C0_SDA_EXT)] = 0;
+    // PORTB->PCR[PIN2NUM(I2C0_SDA_EXT)] |= PORT_PCR_MUX(ALT2);
+    // PORTB->PCR[PIN2NUM(I2C0_SDA_EXT)] |= (PORT_PCR_ODE_MASK | PORT_PCR_PE_MASK | PORT_PCR_PS_MASK);
   }
   else
   {
     //Para el I2C1, configuro los pines PTC10 y 11
     PORTC->PCR[PIN2NUM(I2C1_SCL)] = 0;
     PORTC->PCR[PIN2NUM(I2C1_SCL)] |= PORT_PCR_MUX(ALT2);
+    PORTC->PCR[PIN2NUM(I2C1_SCL)] |= (PORT_PCR_ODE_MASK | PORT_PCR_PE_MASK | PORT_PCR_PS_MASK);
     
     PORTC->PCR[PIN2NUM(I2C1_SDA)] = 0;
     PORTC->PCR[PIN2NUM(I2C1_SDA)] |= PORT_PCR_MUX(ALT2);
+    PORTC->PCR[PIN2NUM(I2C1_SDA)] |= (PORT_PCR_ODE_MASK | PORT_PCR_PE_MASK | PORT_PCR_PS_MASK);
   }
 
   /*Seteo el baudrate (I2C baud rate = I2C module clock speed (Hz)/(mul × SCL divider))
@@ -162,7 +166,8 @@ void i2cWandRTransaction(uint8_t address, uint8_t writeBytes, uint8_t* writeBuff
 
 bool i2c_is_busy(void)
 {
-  return (I2C_x[i2c_num]->S & I2C_S_BUSY_MASK);
+  // return (I2C_x[i2c_num]->S & I2C_S_BUSY_MASK);
+  return (I2C_x[i2c_num]->C1 & I2C_C1_MST_MASK);
 }
 
 bool i2c_write_check(void)
@@ -187,7 +192,7 @@ __ISR__ I2C0_IRQHandler(void)
       I2C0->C1 &= ~I2C_C1_TX_MASK;  //TX = 0 (Read)
       if(!cant_bytes) //El byte que leí recien era el último?
       {
-        I2C0->C1 &= I2C_C1_MST_MASK;  //STOP
+        I2C0->C1 &= ~I2C_C1_MST_MASK;  //STOP
       }
       else if(cant_bytes == 1)  //Si estoy en el último
       {
@@ -204,12 +209,13 @@ __ISR__ I2C0_IRQHandler(void)
       {
         if(rstart)    //Si estoy en Repeat Start
         {
-          I2C0->C1 |= I2C_C1_RSTA_MASK;  //RST=1
-          I2C0->C1 &= ~I2C_C1_TX_MASK; //switch to RX (clear TX bit)
+          rw_mode = MODE_R;
           cant_bytes = R_cant_bytes;
           data = Rdata;
           rstart=false;
-          I2C0->D = (dev_address<<1) + MODE_W;  //Mando address para empezar el Read
+          I2C0->C1 |= I2C_C1_RSTA_MASK;  //RST=1
+          //I2C0->C1 &= ~I2C_C1_TX_MASK; //switch to RX (clear TX bit)
+          I2C0->D = (dev_address<<1) + MODE_R;  //Mando address para empezar el Read
         }
         else
         {   //Si no estoy en Repeat Start, termina
@@ -221,7 +227,7 @@ __ISR__ I2C0_IRQHandler(void)
         if(!(I2C0->S & I2C_S_RXAK_MASK))  //ACK?
         {
           I2C0->D = *data;  //Write action
-          //data++;
+          data++;
           cant_bytes--;
         }
         else
@@ -250,7 +256,7 @@ __ISR__ I2C1_IRQHandler(void)
       I2C1->C1 &= ~I2C_C1_TX_MASK;  //TX = 0 (Read)
       if(!cant_bytes) //El byte que leí recien era el último?
       {
-        I2C1->C1 &= I2C_C1_MST_MASK;  //STOP
+        I2C1->C1 &= ~I2C_C1_MST_MASK;  //STOP
       }
       else if(cant_bytes == 1)  //Si estoy en el último
       {
@@ -272,7 +278,7 @@ __ISR__ I2C1_IRQHandler(void)
           cant_bytes = R_cant_bytes;
           data = Rdata;
           rstart=false;
-          I2C1->D = (dev_address<<1) + MODE_W;  //Mando address para empezar el Read
+          I2C1->D = (dev_address<<1) + MODE_R;  //Mando address para empezar el Read
         }
         else
         {   //Si no estoy en Repeat Start, termina
@@ -284,7 +290,7 @@ __ISR__ I2C1_IRQHandler(void)
         if(!(I2C1->S & I2C_S_RXAK_MASK))  //ACK?
         {
           I2C1->D = *data;  //Write action
-          //data++;
+          data++;
           cant_bytes--;
         }
         else
