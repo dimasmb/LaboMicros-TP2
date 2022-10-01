@@ -33,6 +33,14 @@ typedef enum{
   MODE_R
 }RW_mode;
 
+typedef struct
+{
+  uint8_t reg;
+  RW_mode mode;
+  uint32_t bytes;
+  uint8_t* buffer;
+}single_address_type;
+
 
 /*******************************************************************************
  * VARIABLE PROTOTYPES WITH GLOBAL SCOPE
@@ -46,18 +54,41 @@ typedef enum{
  ******************************************************************************/
 
 /**
- * @brief TODO: completar descripcion
- * @param param1 Descripcion parametro 1
- * @param param2 Descripcion parametro 2
- * @return Descripcion valor que devuelve
+ * @brief TODO: Inicializa el módulo de I2C
+ * @param num número del módulo a inicializar de tipo i2cx
 */
 void init_I2C(i2cx num);
 
+/**
+ * @brief TODO: Comienza una transacción Read o Write
+ * @param address Address del slave al cual quiero escribir/leer
+ * @param mode MODE_W (write) / MODE_R (Read)
+ * @param bytes cantidad de bytes a escribir/leer
+ * @param buffer puntero al buffer donde se guardan los datos leídos o a escribir
+*/
 void i2cSimpleTransaction(uint8_t address, RW_mode mode, uint8_t bytes, uint8_t* buffer);
+
+/**
+ * @brief TODO: Comienza una transacción Write y Read con Repeat Start
+ * @param address Address del slave al cual quiero escribir/leer
+ * @param writeBytes cantidad de bytes a escribir
+ * @param writeBuffer puntero al buffer con los datos a escribir
+ * @param readBytes cantidad de bytes a leer
+ * @param readBuffer puntero al buffer donde se guardan los datos leídos
+*/
 void i2cWandRTransaction(uint8_t address, uint8_t writeBytes, uint8_t* writeBuffer, uint8_t readBytes, uint8_t* readBuffer);
 
+/**
+ * @brief TODO: Chequea si el bus de I2C está ocupado
+ * @return true si está ocupado
+*/
+bool i2c_is_busy(void);
 
-
+/**
+ * @brief TODO: chequea si la escritura se hizo correctamente (reibe ACK)
+ * @return true si no hay error. false si hubo error
+*/
+bool i2c_write_check(void);
 /*******************************************************************************
  ******************************************************************************/
 
