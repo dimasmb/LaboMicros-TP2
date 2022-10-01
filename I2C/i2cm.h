@@ -33,6 +33,14 @@ typedef enum{
   MODE_R
 }RW_mode;
 
+typedef struct
+{
+  uint8_t reg;
+  RW_mode mode;
+  uint32_t bytes;
+  uint8_t* buffer;
+}single_address_type;
+
 
 /*******************************************************************************
  * VARIABLE PROTOTYPES WITH GLOBAL SCOPE

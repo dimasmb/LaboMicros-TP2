@@ -51,7 +51,7 @@ static uint8_t Buffer[FXOS8700CQ_READ_LEN]; // read buffer
 
 // +ej: static int temperaturas_actuales[4];+
 
-
+static void delay(void);
 /*******************************************************************************
  *******************************************************************************
                         GLOBAL FUNCTION DEFINITIONS
@@ -69,12 +69,13 @@ int accel_mag_init(void)
   reg8 = FXOS8700CQ_WHOAMI;
   i2cWandRTransaction((uint8_t)FXOS8700CQ_SLAVE_ADDR, 1, &reg8, 1, &databyte);
   while(i2c_is_busy());
-
+  delay();
   if((!i2c_write_check()) || (databyte != FXOS8700CQ_WHOAMI_VAL))
   {
     return (init_ERROR);
   }
 
+  
   //*************************************************************
   /*******************
   //ACCELEROMETER CONTROL REG1
@@ -87,7 +88,7 @@ int accel_mag_init(void)
   uint8_t reg16[] = {FXOS8700CQ_CTRL_REG1, databyte};
   i2cSimpleTransaction((uint8_t)FXOS8700CQ_SLAVE_ADDR, MODE_W, 2, &(reg16[0]));
   while(i2c_is_busy());
-
+  delay();
   //*************************************************************
   /*******************
   //MAGNETOMETER CONTROL REG1
@@ -110,6 +111,7 @@ int accel_mag_init(void)
   reg16[1] = databyte;
   i2cSimpleTransaction((uint8_t)FXOS8700CQ_SLAVE_ADDR, MODE_W, 2, reg16);
   while(i2c_is_busy());
+  delay();
 
   //*************************************************************
   /*******************
@@ -124,11 +126,11 @@ int accel_mag_init(void)
   // [2]: m_maxmin_rst=0 --> No reset sequence is active
   // [1-0]: m_rst_cnt=00 --> to enable magnetic reset each cycle
   databyte = 0x20;
-  // reg16 = (FXOS8700CQ_M_CTRL_REG2<<8) + databyte;
   reg16[0] = FXOS8700CQ_M_CTRL_REG2;
   reg16[1] = databyte;
   i2cSimpleTransaction((uint8_t)FXOS8700CQ_SLAVE_ADDR, MODE_W, 2, &(reg16[0]));
   while(i2c_is_busy());
+  delay();
 
   //*************************************************************
   /*******************/
@@ -141,11 +143,22 @@ int accel_mag_init(void)
   // [2]: reserved
   // [1-0]: fs=01 --> for accelerometer range of +/-4g range with 0.488mg/LSB
   databyte = 0x01;
-  // reg16 = (FXOS8700CQ_XYZ_DATA_CFG<<8) + databyte;
   reg16[0] = FXOS8700CQ_XYZ_DATA_CFG;
   reg16[1] = databyte;
   i2cSimpleTransaction((uint8_t)FXOS8700CQ_SLAVE_ADDR, MODE_W, 2, &(reg16[0]));
   while(i2c_is_busy());
+  delay();
+
+    //*************************************************************
+  /*******************/
+  // write 0000 0000= 0x00 to F_SETUP register
+  // [1-0]: f_mode = 0 --> FIFO disabled
+  databyte = 0x00;
+  reg16[0] = FXOS8700CQ_F_SETUP;
+  reg16[1] = databyte;
+  i2cSimpleTransaction((uint8_t)FXOS8700CQ_SLAVE_ADDR, MODE_W, 2, &(reg16[0]));
+  while(i2c_is_busy());
+  delay();
 
   //*************************************************************
   /*******************
@@ -158,11 +171,12 @@ int accel_mag_init(void)
   // [1]: f_read=0 --> for normal 16 bit reads
   // [0]: active=1 --> to take the part out of standby and enable sampling
   databyte = 0x0D;
-  // reg16 = (FXOS8700CQ_CTRL_REG1<<8) + databyte;
   reg16[0] = FXOS8700CQ_CTRL_REG1;
   reg16[1] = databyte;
   i2cSimpleTransaction((uint8_t)FXOS8700CQ_SLAVE_ADDR, MODE_W, 2, &(reg16[0]));
   while(i2c_is_busy());
+  delay();
+
   // normal return
   return (init_OK);
 }
@@ -172,7 +186,7 @@ void ReadAccelMagnData(void)
 {
   // read FXOS8700CQ_READ_LEN=13 bytes (status byte and the six channels of data)
   uint8_t reg = FXOS8700CQ_STATUS;
-  i2cWandRTransaction((uint8_t)FXOS8700CQ_SLAVE_ADDR, 1, &reg, FXOS8700CQ_READ_LEN, Buffer);
+  i2cWandRTransaction((uint8_t)FXOS8700CQ_SLAVE_ADDR, 1, &reg, FXOS8700CQ_READ_LEN, &Buffer[0]);
   /*
   The DR_STATUS registers, OUT_X_MSB, OUT_X_LSB, OUT_Y_MSB, OUT_Y_LSB,
   OUT_Z_MSB, and OUT_Z_LSB are located in the auto-incrementing address range of
@@ -209,6 +223,13 @@ bool AccelMagnData_ready(SRAWDATA *pAccelData, SRAWDATA *pMagnData)
  *******************************************************************************
  ******************************************************************************/
 
-
+static void delay(void)
+{
+	int cont=100;
+	while(cont)
+	{
+	  cont--;
+	}
+}
 
  

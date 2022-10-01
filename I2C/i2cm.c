@@ -31,14 +31,6 @@ enum{
   I2C1_SDA = PORTNUM2PIN(PC, 11),
 };
 
-// typedef enum{
-//   START,
-//   REP_START,
-
-
-// } state_t;
-
-
 /*******************************************************************************
  * VARIABLES WITH GLOBAL SCOPE
  ******************************************************************************/
@@ -60,7 +52,7 @@ enum{
 static I2C_Type* I2C_x[2] = {I2C0, I2C1};
 static i2cx i2c_num;
 static RW_mode rw_mode;
-static bool rstart = false;
+static bool reg_read = false;
 static uint32_t cant_bytes;
 static uint8_t* data = NULL;
 //static uint8_t* Wdata;
@@ -93,16 +85,6 @@ void init_I2C(i2cx num)
     PORTE->PCR[PIN2NUM(I2C0_SDA_ACC)] |= PORT_PCR_MUX(ALT5);
     PORTE->PCR[PIN2NUM(I2C0_SDA_ACC)] |= (PORT_PCR_ODE_MASK | PORT_PCR_PE_MASK | PORT_PCR_PS_MASK);
 
-
-
-    //configuro los pines PTB2 y 3 para veros externamente
-    // PORTB->PCR[PIN2NUM(I2C0_SCL_EXT)] = 0;
-    // PORTB->PCR[PIN2NUM(I2C0_SCL_EXT)] |= PORT_PCR_MUX(ALT2);
-    // PORTB->PCR[PIN2NUM(I2C0_SCL_EXT)] |= (PORT_PCR_ODE_MASK | PORT_PCR_PE_MASK | PORT_PCR_PS_MASK);
-    
-    // PORTB->PCR[PIN2NUM(I2C0_SDA_EXT)] = 0;
-    // PORTB->PCR[PIN2NUM(I2C0_SDA_EXT)] |= PORT_PCR_MUX(ALT2);
-    // PORTB->PCR[PIN2NUM(I2C0_SDA_EXT)] |= (PORT_PCR_ODE_MASK | PORT_PCR_PE_MASK | PORT_PCR_PS_MASK);
   }
   else
   {
@@ -120,11 +102,11 @@ void init_I2C(i2cx num)
    *I2C module clock speed (Hz) --> Bus clock --> 50MHz
    *SCL divider --> I2C divider and hold values table --> Pagina 1558 Ref Man
    *ICR = 0x17 --> SCL divider = 128
-   *MUL = 0 --> mul = 1
-   *Baud Rate = 390625bps
+   *MUL = 2 --> mul = 4
+   *Baud Rate = 97656bps
    *CHEQUEAR EN OSCILOSCOPIO QUE TENGA SUFICIENTE HOLD TIME
   */
-  I2C_x[i2c_num]->F |= I2C_F_MULT(0);
+  I2C_x[i2c_num]->F |= I2C_F_MULT(2);
   I2C_x[i2c_num]->F |= I2C_F_ICR(0x17);
 
   I2C_x[i2c_num]->C1 |= I2C_C1_IICIE_MASK; //enable interrputs
@@ -150,18 +132,25 @@ void i2cSimpleTransaction(uint8_t address, RW_mode mode, uint8_t bytes, uint8_t*
 
 void i2cWandRTransaction(uint8_t address, uint8_t writeBytes, uint8_t* writeBuffer, uint8_t readBytes, uint8_t* readBuffer)
 {
+  rw_mode = MODE_W;
   cant_bytes = writeBytes;
   R_cant_bytes = readBytes;
   data = writeBuffer;
   Rdata = readBuffer;
   dev_address = address;
-  rstart = true;
+  reg_read = true;
 
   W_error = false;
   I2C_x[i2c_num]->C1 |= I2C_C1_MST_MASK;  //START
   I2C_x[i2c_num]->C1 |= I2C_C1_TX_MASK;   //TX = 1
 
   I2C_x[i2c_num]->D = (address<<1) + MODE_W;  //address + W/R
+}
+
+
+void i2cSingleAddressW(uint8_t address, uint32_t cant, single_address_type* instructions)
+{
+  dev_address = address;
 }
 
 bool i2c_is_busy(void)
@@ -183,6 +172,7 @@ bool i2c_write_check(void)
 
 __ISR__ I2C0_IRQHandler(void)
 {
+	static bool address_cycle = true;
   I2C0->S |= I2C_S_IICIF_MASK; //clear interrupt flag
 
   switch(rw_mode)
@@ -198,21 +188,30 @@ __ISR__ I2C0_IRQHandler(void)
       {
         I2C0->C1 |= I2C_C1_TXAK_MASK; //NACK
       }
+      else
+      {
+        I2C0->C1 &= ~I2C_C1_TXAK_MASK;
+      }
       *data = I2C0->D;  //Read action
-      //data++;   //tiene auto-inc
       cant_bytes--;
+      if(!address_cycle)
+      {
+          data++;
+      }
+      else address_cycle = false;
       break;
     case MODE_W:
       //modo Write/TX
       //I2C0->C1 |= I2C_C1_TX(true);  //No hace falta setearlo porque viene seteado desde el address cycle
       if(!cant_bytes) //El byte que transmití recien era el último?
       {
-        if(rstart)    //Si estoy en Repeat Start
+        if(reg_read)    //Si estoy en Repeat Start
         {
           rw_mode = MODE_R;
           cant_bytes = R_cant_bytes;
           data = Rdata;
-          rstart=false;
+          reg_read=false;
+          address_cycle = true;
           I2C0->C1 |= I2C_C1_RSTA_MASK;  //RST=1
           //I2C0->C1 &= ~I2C_C1_TX_MASK; //switch to RX (clear TX bit)
           I2C0->D = (dev_address<<1) + MODE_R;  //Mando address para empezar el Read
@@ -271,13 +270,13 @@ __ISR__ I2C1_IRQHandler(void)
       //I2C0->C1 |= I2C_C1_TX(true);  //No hace falta setearlo porque viene seteado desde el address cycle
       if(!cant_bytes) //El byte que transmití recien era el último?
       {
-        if(rstart)    //Si estoy en Repeat Start
+        if(reg_read)    //Si estoy en Repeat Start
         {
           I2C1->C1 |= I2C_C1_RSTA_MASK;  //RST=1
           I2C1->C1 &= ~I2C_C1_TX_MASK; //switch to RX (clear TX bit)
           cant_bytes = R_cant_bytes;
           data = Rdata;
-          rstart=false;
+          reg_read=false;
           I2C1->D = (dev_address<<1) + MODE_R;  //Mando address para empezar el Read
         }
         else
