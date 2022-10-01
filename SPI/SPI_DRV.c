@@ -76,10 +76,20 @@ bool init_SPI ( Spi_config_t Spi){
  return ok;
 }
 void write_SPI(Spi_config_t Spi, uint16_t msg ){
-	spi_pointer[Spi.module_spi]->PUSHR|=SPI_PUSHR_PCS(Spi.PCS);
-	spi_pointer[Spi.module_spi]->PUSHR|=SPI_PUSHR_TXDATA(msg);
+	uint32_t PUSHR_Value = 0;
+	//spi_pointer[Spi.module_spi]->PUSHR |= SPI_PUSHR_CONT(1);comet
+	//spi_pointer[Spi.module_spi]->PUSHR &= ~SPI_PUSHR_CONT(1);	//elijo que suba entre transfer
+	//spi_pointer[Spi.module_spi]->PUSHR &= ~SPI_PUSHR_PCS(1);//Spi.PCS
+	PUSHR_Value |=SPI_PUSHR_PCS(1);
+	PUSHR_Value |=SPI_PUSHR_CTAS(0b001); 		//elijo que ctar estoy configurando pa mandar.
+	//spi_pointer[Spi.module_spi]->PUSHR &=~SPI_PUSHR_CTAS(0b111);comet
+	PUSHR_Value |= SPI_PUSHR_TXDATA(msg);
+	//spi_pointer[Spi.module_spi]->PUSHR |= SPI_PUSHR_EOQ(1);comet
 
 	//spi_pointer[Spi.module_spi]->PUSHR = (spi_pointer[Spi.module_spi]->PUSHR & ~SPI_PUSHR_PCS_MASK) | SPI_PUSHR_PCS(1 << Spi.PCS) |(spi_pointer[Spi.module_spi]->PUSHR & ~SPI_PUSHR_TXDATA_MASK) | SPI_PUSHR_TXDATA(msg);
+
+	spi_pointer[Spi.module_spi]->PUSHR = PUSHR_Value;
+
 	return;
 }
 uint32_t read_SPI(Spi_config_t Spi){
@@ -118,6 +128,7 @@ void init_Clk_Nvinc(Module_Spi_t module){ //se habilita el clock gating de los S
 }
 bool config_CTAR(Spi_config_t Spi){		//Se configuran los atributos del spi elegido.
 int ctrl=Spi.CONT_CLK;
+//ctrl=1;
 if (Spi.mode<Disable)
 {
 	if(Spi.mode == Master ){		// CTAR es una union de dos arreglos , en la parte ALTA se configura el master mode(lo cambio pa usar sck continuo)
@@ -125,9 +136,13 @@ if (Spi.mode<Disable)
 		 spi_pointer[Spi.module_spi]->CTAR[ctrl] |= SPI_CTAR_DBR(Spi.DBR);
 		 spi_pointer[Spi.module_spi]->CTAR[ctrl] |= SPI_CTAR_FMSZ(Spi.FMSZ);
 		 spi_pointer[Spi.module_spi]->CTAR[ctrl] |= SPI_CTAR_CPOL(Spi.CPOL);
+		 spi_pointer[Spi.module_spi]->CTAR[ctrl] |=SPI_CTAR_CPHA(Spi.CPHA);
 		 spi_pointer[Spi.module_spi]->CTAR[ctrl] |= SPI_CTAR_LSBFE(Spi.LSBFE);
 		 spi_pointer[Spi.module_spi]->CTAR[ctrl] |= SPI_CTAR_PBR(Spi.PBR);
 		 spi_pointer[Spi.module_spi]->CTAR[ctrl] |= SPI_CTAR_BR(0b1111) ;
+		 //Agrego delays extras pa poder detectar mejor los numeros
+		 spi_pointer[Spi.module_spi]->CTAR[ctrl] |= SPI_CTAR_PCSSCK(0b11); //
+		 spi_pointer[Spi.module_spi]->CTAR[ctrl] |=SPI_CTAR_CSSCK(0b0100);
 		// spi_pointer[Spi.module_spi]->CTAR[1] |= (spi_pointer[Spi.module_spi]->CTAR[1]& ~SPI_CTAR_BR_MASK) | SPI_CTAR_BR(0b1001);
 	}
 	else{
@@ -147,13 +162,16 @@ bool config_MCR(Spi_config_t Spi){ //todo podria agregar el PCSIS , Peropheral C
 		spi_pointer[Spi.module_spi]->MCR= 0; 	//Reset el MCR
   	  	spi_pointer[Spi.module_spi]->MCR|=SPI_MCR_HALT(true); //seteo el halt por uqe asi lo aconseja el reset
 		spi_pointer[Spi.module_spi]->MCR|=SPI_MCR_MSTR(Spi.mode);	//seteo el modo
-		spi_pointer[Spi.module_spi]->MCR|=SPI_MCR_CONT_SCKE(true);
+		spi_pointer[Spi.module_spi]->MCR|=SPI_MCR_CONT_SCKE(false); //pa controlar el clock continuo.
 
 		spi_pointer[Spi.module_spi]->MCR|=SPI_MCR_PCSIS(Spi.PCSIS);
 		if(Spi.mode==Slave){spi_pointer[Spi.module_spi]->MCR|=SPI_MCR_MDIS(0); } //recomendacion del Reference
 		return true;
 	}
 	return false;	 
+}
+void disable_CS(Spi_config_t Spi){
+	spi_pointer[Spi.module_spi]->PUSHR |= SPI_PUSHR_EOQ(1);
 }
 
 
