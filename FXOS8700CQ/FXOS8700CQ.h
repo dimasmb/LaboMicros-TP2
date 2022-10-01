@@ -40,10 +40,17 @@
  ******************************************************************************/
 typedef struct
 {
-  uint16_t x;
-  uint16_t y;
-  uint16_t z;
+  int16_t x;
+  int16_t y;
+  int16_t z;
 } SRAWDATA;
+
+typedef struct
+{
+  int16_t pitch;
+  int16_t roll;
+  int16_t yaw;
+} angular_data_t;
 
 enum
 {
@@ -75,9 +82,17 @@ void ReadAccelMagnData(void);
  * @brief TODO: Si se terminó la lectura, guarda los valores
  * @param pAccelData Puntero a un SRAWDATA donde se guardan los datos del acelerómetro
  * @param pMagnData Puntero a un SRAWDATA donde se guardan los datos del magnetómetro
- * @return Descripcion valor que devuelve
+ * @return true si pudo leer
 */
 bool AccelMagnData_ready(SRAWDATA *pAccelData, SRAWDATA *pMagnData);
+
+/**
+ * @brief TODO: Convierte los datos recibidos del acelerómetro y el magnetómetro a ángulos de cabeceo, rolido y orientación
+ * @param pAccelData Puntero a un SRAWDATA donde están guardados los datos del acelerómetro
+ * @param pMagnData Puntero a un SRAWDATA donde están guardados los datos del magnetómetro
+ * @return Un angular_data_t con los angulos
+*/
+angular_data_t get_angles(SRAWDATA *pAccelData, SRAWDATA *pMagnData);
 
 /*******************************************************************************
  ******************************************************************************/

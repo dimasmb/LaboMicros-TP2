@@ -8,9 +8,12 @@
  * INCLUDE HEADER FILES
  ******************************************************************************/
 #include "FXOS8700CQ.h"
+#include <math.h>
 #include "i2cm.h"
 // +Incluir el header propio (ej: #include "template.h")+
-
+#ifndef M_PI
+#define M_PI		3.14159265358979323846
+#endif
 
 /*******************************************************************************
  * CONSTANT AND MACRO DEFINITIONS USING #DEFINE
@@ -216,6 +219,18 @@ bool AccelMagnData_ready(SRAWDATA *pAccelData, SRAWDATA *pMagnData)
   }
   else return false;
   
+}
+
+angular_data_t get_angles(SRAWDATA *pAccelData, SRAWDATA *pMagnData)
+{
+  angular_data_t data_ang;
+  data_ang.roll = 180 * atan2(pAccelData->x, sqrt(pAccelData->y*pAccelData->y + pAccelData->z*pAccelData->z))/M_PI;
+  data_ang.pitch = 180 * atan2(pAccelData->y, sqrt(pAccelData->x*pAccelData->x + pAccelData->z*pAccelData->z))/M_PI;
+  int16_t mag_x = pMagnData->x*cos(data_ang.roll) + pMagnData->y*sin(data_ang.pitch)*sin(data_ang.roll) + pMagnData->z*cos(data_ang.pitch)*sin(data_ang.roll);
+  int16_t mag_y = pMagnData->y * cos(data_ang.pitch) - pMagnData->z * sin(data_ang.pitch);
+  data_ang.yaw = 180 * atan2(-mag_y,mag_x)/M_PI;
+
+  return data_ang;
 }
 /*******************************************************************************
  *******************************************************************************
