@@ -68,7 +68,7 @@ static uint8_t dev_address;
                         GLOBAL FUNCTION DEFINITIONS
  *******************************************************************************
  ******************************************************************************/
-void init_I2C(i2cx num)
+void I2C_init(i2cx num)
 {
   SIM->SCGC4 |= (1<<(6+num)); //clock gating
   i2c_num = num;
@@ -130,7 +130,7 @@ void i2cSimpleTransaction(uint8_t address, RW_mode mode, uint8_t bytes, uint8_t*
   I2C_x[i2c_num]->D = (address<<1) + mode;
 }
 
-void i2cWandRTransaction(uint8_t address, uint8_t writeBytes, uint8_t* writeBuffer, uint8_t readBytes, uint8_t* readBuffer)
+void i2c_repeat_start(uint8_t address, uint8_t writeBytes, uint8_t* writeBuffer, uint8_t readBytes, uint8_t* readBuffer)
 {
   rw_mode = MODE_W;
   cant_bytes = writeBytes;
@@ -147,19 +147,13 @@ void i2cWandRTransaction(uint8_t address, uint8_t writeBytes, uint8_t* writeBuff
   I2C_x[i2c_num]->D = (address<<1) + MODE_W;  //address + W/R
 }
 
-
-void i2cSingleAddressW(uint8_t address, uint32_t cant, single_address_type* instructions)
-{
-  dev_address = address;
-}
-
 bool i2c_is_busy(void)
 {
   // return (I2C_x[i2c_num]->S & I2C_S_BUSY_MASK);
   return (I2C_x[i2c_num]->C1 & I2C_C1_MST_MASK);
 }
 
-bool i2c_write_check(void)
+bool i2c_write_ok(void)
 {
   return !W_error;
 }

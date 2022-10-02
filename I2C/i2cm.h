@@ -57,7 +57,7 @@ typedef struct
  * @brief TODO: Inicializa el módulo de I2C
  * @param num número del módulo a inicializar de tipo i2cx
 */
-void init_I2C(i2cx num);
+void I2C_init(i2cx num);
 
 /**
  * @brief TODO: Comienza una transacción Read o Write
@@ -76,7 +76,7 @@ void i2cSimpleTransaction(uint8_t address, RW_mode mode, uint8_t bytes, uint8_t*
  * @param readBytes cantidad de bytes a leer
  * @param readBuffer puntero al buffer donde se guardan los datos leídos
 */
-void i2cWandRTransaction(uint8_t address, uint8_t writeBytes, uint8_t* writeBuffer, uint8_t readBytes, uint8_t* readBuffer);
+void i2c_repeat_start(uint8_t address, uint8_t writeBytes, uint8_t* writeBuffer, uint8_t readBytes, uint8_t* readBuffer);
 
 /**
  * @brief TODO: Chequea si el bus de I2C está ocupado
@@ -88,7 +88,7 @@ bool i2c_is_busy(void);
  * @brief TODO: chequea si la escritura se hizo correctamente (reibe ACK)
  * @return true si no hay error. false si hubo error
 */
-bool i2c_write_check(void);
+bool i2c_write_ok(void);
 /*******************************************************************************
  ******************************************************************************/
 

@@ -65,7 +65,7 @@ static void resetDelay(void);
 // function configures FXOS8700CQ combination accelerometer and magnetometer sensor 
 int accel_mag_init(void)
 {
-  init_I2C(I2C_0);
+  I2C_init(I2C_0);
   static uint8_t databyte;
   static uint8_t reg8;
 
@@ -109,10 +109,10 @@ int accel_mag_init(void)
     read and check the FXOS8700CQ WHOAMI register
   *********************/
   reg8 = FXOS8700CQ_WHOAMI;
-  i2cWandRTransaction((uint8_t)FXOS8700CQ_SLAVE_ADDR, 1, &reg8, 1, &databyte);
+  i2c_repeat_start((uint8_t)FXOS8700CQ_SLAVE_ADDR, 1, &reg8, 1, &databyte);
   while(i2c_is_busy());
   delay();
-  if((!i2c_write_check()) || (databyte != FXOS8700CQ_WHOAMI_VAL))
+  if((!i2c_write_ok()) || (databyte != FXOS8700CQ_WHOAMI_VAL))
   {
     return (init_ERROR);
   }
@@ -223,13 +223,13 @@ int accel_mag_init(void)
 }
 
 // read status and the three channels of accelerometer and magnetometer data from FXOS8700CQ (13 bytes)
-void ReadAccelMagnData(void)
+void read_accel_data(void)
 {
   static uint8_t reg = FXOS8700CQ_STATUS;
   // read FXOS8700CQ_READ_LEN=13 bytes (status byte and the six channels of data)
   if(!reading)
   {
-	  i2cWandRTransaction((uint8_t)FXOS8700CQ_SLAVE_ADDR, 1, &reg, FXOS8700CQ_READ_LEN, &Buffer[0]);
+	  i2c_repeat_start((uint8_t)FXOS8700CQ_SLAVE_ADDR, 1, &reg, FXOS8700CQ_READ_LEN, &Buffer[0]);
 	  reading = true;
   }
 
@@ -244,7 +244,7 @@ void ReadAccelMagnData(void)
   */
 }
 
-bool AccelMagnData_ready(SRAWDATA *pAccelData, SRAWDATA *pMagnData)
+bool is_accel_data_ready(SRAWDATA *pAccelData, SRAWDATA *pMagnData)
 {
   if((!i2c_is_busy()) && reading)
   {
@@ -265,14 +265,16 @@ bool AccelMagnData_ready(SRAWDATA *pAccelData, SRAWDATA *pMagnData)
   
 }
 
-angular_data_t get_angles(SRAWDATA *pAccelData, SRAWDATA *pMagnData)
+angular_data_t raw_2_angles(SRAWDATA *pAccelData, SRAWDATA *pMagnData)
 {
   angular_data_t data_ang;
-  data_ang.roll = 180 * atan2(pAccelData->x, sqrt(pAccelData->y*pAccelData->y + pAccelData->z*pAccelData->z))/M_PI;
-  data_ang.pitch = 180 * atan2(pAccelData->y, sqrt(pAccelData->x*pAccelData->x + pAccelData->z*pAccelData->z))/M_PI;
+
+  data_ang.roll = (180/M_PI) * atan2(-pAccelData->x, pAccelData->z);
+  data_ang.pitch = (180/M_PI) * atan2(-pAccelData->y, sqrt(pAccelData->x*pAccelData->x + pAccelData->z*pAccelData->z));
+  
   int16_t mag_x = pMagnData->x*cos(data_ang.roll) + pMagnData->y*sin(data_ang.pitch)*sin(data_ang.roll) + pMagnData->z*cos(data_ang.pitch)*sin(data_ang.roll);
   int16_t mag_y = pMagnData->y * cos(data_ang.pitch) - pMagnData->z * sin(data_ang.pitch);
-  data_ang.yaw = 180 * atan(-mag_y,mag_x)/M_PI;
+  data_ang.yaw = 180 * atan(-mag_y/mag_x)/M_PI;
 
   return data_ang;
 }

@@ -77,7 +77,7 @@ int accel_mag_init(void);
 /**
  * @brief TODO: Inicia la lectura de los valores del acelerómetro y el magnetómetro
 */
-void ReadAccelMagnData(void);
+void read_accel_data(void);
 
 /**
  * @brief TODO: Si se terminó la lectura, guarda los valores
@@ -85,7 +85,7 @@ void ReadAccelMagnData(void);
  * @param pMagnData Puntero a un SRAWDATA donde se guardan los datos del magnetómetro
  * @return true si pudo leer
 */
-bool AccelMagnData_ready(SRAWDATA *pAccelData, SRAWDATA *pMagnData);
+bool is_accel_data_ready(SRAWDATA *pAccelData, SRAWDATA *pMagnData);
 
 /**
  * @brief TODO: Convierte los datos recibidos del acelerómetro y el magnetómetro a ángulos de cabeceo, rolido y orientación
@@ -93,7 +93,7 @@ bool AccelMagnData_ready(SRAWDATA *pAccelData, SRAWDATA *pMagnData);
  * @param pMagnData Puntero a un SRAWDATA donde están guardados los datos del magnetómetro
  * @return Un angular_data_t con los angulos
 */
-angular_data_t get_angles(SRAWDATA *pAccelData, SRAWDATA *pMagnData);
+angular_data_t raw_2_angles(SRAWDATA *pAccelData, SRAWDATA *pMagnData);
 
 /*******************************************************************************
  ******************************************************************************/
