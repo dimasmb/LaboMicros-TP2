@@ -8,9 +8,12 @@
  * INCLUDE HEADER FILES
  ******************************************************************************/
 #include "FXOS8700CQ.h"
+#include <math.h>
 #include "i2cm.h"
 // +Incluir el header propio (ej: #include "template.h")+
-
+#ifndef M_PI
+#define M_PI		3.14159265358979323846
+#endif
 
 /*******************************************************************************
  * CONSTANT AND MACRO DEFINITIONS USING #DEFINE
@@ -37,7 +40,7 @@
 
 // +ej: static void falta_envido (int);+
 static uint8_t Buffer[FXOS8700CQ_READ_LEN]; // read buffer
-
+static bool reading = false;
 /*******************************************************************************
  * ROM CONST VARIABLES WITH FILE LEVEL SCOPE
  ******************************************************************************/
@@ -61,8 +64,8 @@ static void delay(void);
 int accel_mag_init(void)
 {
   init_I2C(I2C_0);
-  uint8_t databyte;
-  uint8_t reg8;
+  static uint8_t databyte;
+  static uint8_t reg8;
   /* **************************
     read and check the FXOS8700CQ WHOAMI register
   *********************/
@@ -184,9 +187,14 @@ int accel_mag_init(void)
 // read status and the three channels of accelerometer and magnetometer data from FXOS8700CQ (13 bytes)
 void ReadAccelMagnData(void)
 {
+  static uint8_t reg = FXOS8700CQ_STATUS;
   // read FXOS8700CQ_READ_LEN=13 bytes (status byte and the six channels of data)
-  uint8_t reg = FXOS8700CQ_STATUS;
-  i2cWandRTransaction((uint8_t)FXOS8700CQ_SLAVE_ADDR, 1, &reg, FXOS8700CQ_READ_LEN, &Buffer[0]);
+  if(!reading)
+  {
+	  i2cWandRTransaction((uint8_t)FXOS8700CQ_SLAVE_ADDR, 1, &reg, FXOS8700CQ_READ_LEN, &Buffer[0]);
+	  reading = true;
+  }
+
   /*
   The DR_STATUS registers, OUT_X_MSB, OUT_X_LSB, OUT_Y_MSB, OUT_Y_LSB,
   OUT_Z_MSB, and OUT_Z_LSB are located in the auto-incrementing address range of
@@ -200,8 +208,9 @@ void ReadAccelMagnData(void)
 
 bool AccelMagnData_ready(SRAWDATA *pAccelData, SRAWDATA *pMagnData)
 {
-  if(!i2c_is_busy())
+  if((!i2c_is_busy()) && reading)
   {
+	reading = false;
     // copy the 14 bit accelerometer byte data into 16 bit words
     pAccelData->x = (int16_t)(((Buffer[1] << 8) | Buffer[2]))>> 2;
     pAccelData->y = (int16_t)(((Buffer[3] << 8) | Buffer[4]))>> 2;
@@ -216,6 +225,18 @@ bool AccelMagnData_ready(SRAWDATA *pAccelData, SRAWDATA *pMagnData)
   }
   else return false;
   
+}
+
+angular_data_t get_angles(SRAWDATA *pAccelData, SRAWDATA *pMagnData)
+{
+  angular_data_t data_ang;
+  data_ang.roll = 180 * atan2(pAccelData->x, sqrt(pAccelData->y*pAccelData->y + pAccelData->z*pAccelData->z))/M_PI;
+  data_ang.pitch = 180 * atan2(pAccelData->y, sqrt(pAccelData->x*pAccelData->x + pAccelData->z*pAccelData->z))/M_PI;
+  int16_t mag_x = pMagnData->x*cos(data_ang.roll) + pMagnData->y*sin(data_ang.pitch)*sin(data_ang.roll) + pMagnData->z*cos(data_ang.pitch)*sin(data_ang.roll);
+  int16_t mag_y = pMagnData->y * cos(data_ang.pitch) - pMagnData->z * sin(data_ang.pitch);
+  data_ang.yaw = 180 * atan2(-mag_y,mag_x)/M_PI;
+
+  return data_ang;
 }
 /*******************************************************************************
  *******************************************************************************
