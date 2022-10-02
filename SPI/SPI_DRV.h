@@ -62,8 +62,10 @@ typedef struct {
  */
 bool init_SPI (Spi_config_t Spi);
 void write_SPI(Spi_config_t Spi, uint16_t msg );
+//void writeENDQ_SPI(Spi_config_t Spi, uint16_t msg );
 uint32_t read_SPI(Spi_config_t Spi);
 void disable_CS(Spi_config_t Spi);
+bool SPI_TransferComplet(Spi_config_t Spi);
 
 
 

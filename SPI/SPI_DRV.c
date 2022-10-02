@@ -76,25 +76,70 @@ bool init_SPI ( Spi_config_t Spi){
  return ok;
 }
 void write_SPI(Spi_config_t Spi, uint16_t msg ){
+	spi_pointer[Spi.module_spi]->SR |= SPI_SR_TCF(1); //borro el tranfer flag complete
+
+	while (!(spi_pointer[Spi.module_spi]->SR & SPI_SR_TFFF_MASK)) // Si TFFF = 1 (TxFifo no esta full, hay al menos un bit disponible), sale del while
+    {
+		spi_pointer[Spi.module_spi]->SR |= SPI_SR_TFFF_MASK; // asumo que está llena, entonces hasta que no se haya ido al menos un bit, no va a cambiar TFFF a 1
+    }
+
 	uint32_t PUSHR_Value = 0;
-	//spi_pointer[Spi.module_spi]->PUSHR |= SPI_PUSHR_CONT(1);comet
-	//spi_pointer[Spi.module_spi]->PUSHR &= ~SPI_PUSHR_CONT(1);	//elijo que suba entre transfer
-	//spi_pointer[Spi.module_spi]->PUSHR &= ~SPI_PUSHR_PCS(1);//Spi.PCS
+	PUSHR_Value|=SPI_PUSHR_CONT(1); //pa probar.
 	PUSHR_Value |=SPI_PUSHR_PCS(1);
 	PUSHR_Value |=SPI_PUSHR_CTAS(0b001); 		//elijo que ctar estoy configurando pa mandar.
-	//spi_pointer[Spi.module_spi]->PUSHR &=~SPI_PUSHR_CTAS(0b111);comet
+	PUSHR_Value |=SPI_PUSHR_CTCNT(1);
+	PUSHR_Value	&=~SPI_PUSHR_EOQ(1);
 	PUSHR_Value |= SPI_PUSHR_TXDATA(msg);
-	//spi_pointer[Spi.module_spi]->PUSHR |= SPI_PUSHR_EOQ(1);comet
-
-	//spi_pointer[Spi.module_spi]->PUSHR = (spi_pointer[Spi.module_spi]->PUSHR & ~SPI_PUSHR_PCS_MASK) | SPI_PUSHR_PCS(1 << Spi.PCS) |(spi_pointer[Spi.module_spi]->PUSHR & ~SPI_PUSHR_TXDATA_MASK) | SPI_PUSHR_TXDATA(msg);
-
 	spi_pointer[Spi.module_spi]->PUSHR = PUSHR_Value;
-
+	spi_pointer[Spi.module_spi]->SR |= SPI_SR_TFFF_MASK;
+    while (!(spi_pointer[Spi.module_spi]->SR & SPI_SR_TCF_MASK)) // si TCF = 1 (transferencia completa), sale del while
+    {												// es decir espero a que se shifteen todos los bits del frame
+    }
+    spi_pointer[Spi.module_spi]->POPR;
+    //printf("%d\n",spi_pointer[Spi.module_spi]->POPR);
 	return;
 }
 uint32_t read_SPI(Spi_config_t Spi){
 	return (spi_pointer[Spi.module_spi]->POPR & SPI_POPR_RXDATA_MASK) >> SPI_POPR_RXDATA_SHIFT ;
 	//return(spi_pointer[Spi.module_spi]->POPR |=);
+}
+void disable_CS(Spi_config_t Spi ){
+	uint8_t msg=0b00000000;
+	spi_pointer[Spi.module_spi]->SR |= SPI_SR_TCF(1); //borro el tranfer flag complete
+
+	while (!(spi_pointer[Spi.module_spi]->SR & SPI_SR_TFFF_MASK)) // Si TFFF = 1 (TxFifo no esta full, hay al menos un bit disponible), sale del while
+    {
+		spi_pointer[Spi.module_spi]->SR |= SPI_SR_TFFF_MASK; // asumo que está llena, entonces hasta que no se haya ido al menos un bit, no va a cambiar TFFF a 1
+    }
+
+	uint32_t PUSHR_Value = 0;
+	PUSHR_Value&=~SPI_PUSHR_CONT(1); //apago el keepcs
+	PUSHR_Value &=~SPI_PUSHR_PCS(1);	//apago el chip selec.
+	PUSHR_Value	|=SPI_PUSHR_EOQ(1);
+	PUSHR_Value |=SPI_PUSHR_CTCNT(1);
+	PUSHR_Value |=SPI_PUSHR_CTAS(0b001); 		//elijo que ctar estoy configurando pa mandar.
+	PUSHR_Value |= SPI_PUSHR_TXDATA(msg);
+	spi_pointer[Spi.module_spi]->PUSHR = PUSHR_Value;
+	spi_pointer[Spi.module_spi]->SR |= SPI_SR_TFFF_MASK;
+    while (!(spi_pointer[Spi.module_spi]->SR & SPI_SR_TCF_MASK)) // si TCF = 1 (transferencia completa), sale del while
+    {												// es decir espero a que se shifteen todos los bits del frame
+    }
+    //spi_pointer[Spi.module_spi]->POPR;
+    //printf("%d\n",spi_pointer[Spi.module_spi]->POPR);
+	return;
+}
+/*void disable_CS(Spi_config_t Spi){
+	uint32_t PUSHR_Value = 0;
+	PUSHR_Value&=~SPI_PUSHR_CONT(1); //apago el keepcs
+	PUSHR_Value &=~SPI_PUSHR_PCS(1);	//apago el chip selec.
+	PUSHR_Value	|=SPI_PUSHR_EOQ(1);
+	PUSHR_Value |=SPI_PUSHR_CTCNT(1);
+	spi_pointer[Spi.module_spi]->PUSHR = PUSHR_Value;
+
+}*/
+bool SPI_TransferComplet(Spi_config_t Spi)
+{
+	return (spi_pointer[Spi.module_spi]->SR & SPI_SR_TCF_MASK) >> SPI_SR_TCF_SHIFT;
 }
 
 
@@ -141,8 +186,12 @@ if (Spi.mode<Disable)
 		 spi_pointer[Spi.module_spi]->CTAR[ctrl] |= SPI_CTAR_PBR(Spi.PBR);
 		 spi_pointer[Spi.module_spi]->CTAR[ctrl] |= SPI_CTAR_BR(0b1111) ;
 		 //Agrego delays extras pa poder detectar mejor los numeros
-		 spi_pointer[Spi.module_spi]->CTAR[ctrl] |= SPI_CTAR_PCSSCK(0b11); //
+		 spi_pointer[Spi.module_spi]->CTAR[ctrl] |= SPI_CTAR_PCSSCK(0b11); //5us delay pa que arranque
 		 spi_pointer[Spi.module_spi]->CTAR[ctrl] |=SPI_CTAR_CSSCK(0b0100);
+		 //delay min entre transfer.
+		 spi_pointer[Spi.module_spi]->CTAR[ctrl] |= SPI_CTAR_PDT(0b11); //Delay entre transferencias 5us
+		 spi_pointer[Spi.module_spi]->CTAR[ctrl] |=SPI_CTAR_DT(0b0100);
+
 		// spi_pointer[Spi.module_spi]->CTAR[1] |= (spi_pointer[Spi.module_spi]->CTAR[1]& ~SPI_CTAR_BR_MASK) | SPI_CTAR_BR(0b1001);
 	}
 	else{
@@ -162,16 +211,13 @@ bool config_MCR(Spi_config_t Spi){ //todo podria agregar el PCSIS , Peropheral C
 		spi_pointer[Spi.module_spi]->MCR= 0; 	//Reset el MCR
   	  	spi_pointer[Spi.module_spi]->MCR|=SPI_MCR_HALT(true); //seteo el halt por uqe asi lo aconseja el reset
 		spi_pointer[Spi.module_spi]->MCR|=SPI_MCR_MSTR(Spi.mode);	//seteo el modo
-		spi_pointer[Spi.module_spi]->MCR|=SPI_MCR_CONT_SCKE(false); //pa controlar el clock continuo.
+		spi_pointer[Spi.module_spi]->MCR&=~SPI_MCR_CONT_SCKE(1); //pa controlar el clock continuo.
 
 		spi_pointer[Spi.module_spi]->MCR|=SPI_MCR_PCSIS(Spi.PCSIS);
 		if(Spi.mode==Slave){spi_pointer[Spi.module_spi]->MCR|=SPI_MCR_MDIS(0); } //recomendacion del Reference
 		return true;
 	}
 	return false;	 
-}
-void disable_CS(Spi_config_t Spi){
-	spi_pointer[Spi.module_spi]->PUSHR |= SPI_PUSHR_EOQ(1);
 }
 
 
