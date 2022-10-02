@@ -61,7 +61,7 @@ typedef struct {
  * @param mode INPUT, OUTPUT, INPUT_PULLUP or INPUT_PULLDOWN.
  */
 bool init_SPI (Spi_config_t Spi);
-void write_SPI(Spi_config_t Spi, uint16_t msg );
+uint8_t  writeyread_SPI(Spi_config_t Spi, uint16_t msg );
 //void writeENDQ_SPI(Spi_config_t Spi, uint16_t msg );
 uint32_t read_SPI(Spi_config_t Spi);
 void disable_CS(Spi_config_t Spi);

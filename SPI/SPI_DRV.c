@@ -75,7 +75,7 @@ bool init_SPI ( Spi_config_t Spi){
   }
  return ok;
 }
-void write_SPI(Spi_config_t Spi, uint16_t msg ){
+uint8_t writeyread_SPI(Spi_config_t Spi, uint16_t msg ){
 	spi_pointer[Spi.module_spi]->SR |= SPI_SR_TCF(1); //borro el tranfer flag complete
 
 	while (!(spi_pointer[Spi.module_spi]->SR & SPI_SR_TFFF_MASK)) // Si TFFF = 1 (TxFifo no esta full, hay al menos un bit disponible), sale del while
@@ -95,9 +95,10 @@ void write_SPI(Spi_config_t Spi, uint16_t msg ){
     while (!(spi_pointer[Spi.module_spi]->SR & SPI_SR_TCF_MASK)) // si TCF = 1 (transferencia completa), sale del while
     {												// es decir espero a que se shifteen todos los bits del frame
     }
-    spi_pointer[Spi.module_spi]->POPR;
+   return (spi_pointer[Spi.module_spi]->POPR & SPI_POPR_RXDATA_MASK) >> SPI_POPR_RXDATA_SHIFT;
+		   //spi_pointer[Spi.module_spi]->POPR;
     //printf("%d\n",spi_pointer[Spi.module_spi]->POPR);
-	return;
+
 }
 uint32_t read_SPI(Spi_config_t Spi){
 	return (spi_pointer[Spi.module_spi]->POPR & SPI_POPR_RXDATA_MASK) >> SPI_POPR_RXDATA_SHIFT ;
@@ -184,13 +185,14 @@ if (Spi.mode<Disable)
 		 spi_pointer[Spi.module_spi]->CTAR[ctrl] |=SPI_CTAR_CPHA(Spi.CPHA);
 		 spi_pointer[Spi.module_spi]->CTAR[ctrl] |= SPI_CTAR_LSBFE(Spi.LSBFE);
 		 spi_pointer[Spi.module_spi]->CTAR[ctrl] |= SPI_CTAR_PBR(Spi.PBR);
-		 spi_pointer[Spi.module_spi]->CTAR[ctrl] |= SPI_CTAR_BR(0b1111) ;
+
+		 spi_pointer[Spi.module_spi]->CTAR[ctrl] |= SPI_CTAR_BR(0b0110) ;
 		 //Agrego delays extras pa poder detectar mejor los numeros
 		 spi_pointer[Spi.module_spi]->CTAR[ctrl] |= SPI_CTAR_PCSSCK(0b11); //5us delay pa que arranque
-		 spi_pointer[Spi.module_spi]->CTAR[ctrl] |=SPI_CTAR_CSSCK(0b0100);
+		 spi_pointer[Spi.module_spi]->CTAR[ctrl] |=SPI_CTAR_CSSCK(0b0010);
 		 //delay min entre transfer.
 		 spi_pointer[Spi.module_spi]->CTAR[ctrl] |= SPI_CTAR_PDT(0b11); //Delay entre transferencias 5us
-		 spi_pointer[Spi.module_spi]->CTAR[ctrl] |=SPI_CTAR_DT(0b0100);
+		 spi_pointer[Spi.module_spi]->CTAR[ctrl] |=SPI_CTAR_DT(0b0010);
 
 		// spi_pointer[Spi.module_spi]->CTAR[1] |= (spi_pointer[Spi.module_spi]->CTAR[1]& ~SPI_CTAR_BR_MASK) | SPI_CTAR_BR(0b1001);
 	}

@@ -8,7 +8,7 @@
  ******************************************************************************/
 #define DATASHIT 0b00000000 //define usada pa rellenar
 //Instruccion
-#define WRITE 0b11000000
+#define WRITE 0b00000010
 #define READ  0b00000011
 #define RESET 0b11000000 
 #define READ_STATUS 0b10100000 //Comando pa chequear bit de estados , todavia no se como se usa bien :todo investigar
@@ -40,37 +40,56 @@ uint32_t prepare_frame(uint8_t instruccion,uint8_t address,uint8_t data);
                         GLOBAL FUNCTION DEFINITIONS
  *******************************************************************************
  ******************************************************************************/
+static uint8_t array[4];
+bool Reset_MCP(){
+	writeyread_SPI(SpiMCP,RESET);
+	disable_CS(SpiMCP);
+}
 
 //todo Necesito una funcion para apagar el Spi.
 bool Write_MCP (uint8_t address, uint8_t data){  //instruccion + Direccion+ Data = 1byte +1byte+1byte
-
-   //bool valid= init_SPI (Spi);      // a q registro tengo q escribir? Frame de 23
-    //if (valid==true){
-    //    write_SPI(SpiMCP,prepare_frame(WRITE,address,data) );
-	write_SPI(SpiMCP,WRITE);
-	write_SPI(SpiMCP,address) ;
-	write_SPI(SpiMCP,data) ;;
+	writeyread_SPI(SpiMCP,WRITE);
+	writeyread_SPI(SpiMCP,address) ;
+	writeyread_SPI(SpiMCP,data) ;
 	disable_CS(SpiMCP);
-    
         //todo Como chequeo que se envio algo bien?
-    //}
     return true;
 }
+bool Bit_Modify(uint8_t address,uint8_t Mask,uint8_t bit){
+	writeyread_SPI(SpiMCP,0b00000101);
+	writeyread_SPI(SpiMCP,address) ;
+	writeyread_SPI(SpiMCP,Mask);
+	writeyread_SPI(SpiMCP,bit) ;
+	disable_CS(SpiMCP);
+}
+
 
 uint8_t Read_MCP (uint8_t address){
    // init_SPI(Spi); //frame de 15
-	write_SPI(SpiMCP,READ);
-	write_SPI(SpiMCP,address);
-	write_SPI(SpiMCP,DATASHIT);
-	uint8_t lectura=read_SPI(SpiMCP);
+	array[0]=writeyread_SPI(SpiMCP,READ);
+	array[1]=writeyread_SPI(SpiMCP,address);
+	array[2]=writeyread_SPI(SpiMCP,DATASHIT);
+	/*printf("%x\n",writeyread_SPI(SpiMCP,READ));
+	printf("%x\n",writeyread_SPI(SpiMCP,address));
+	printf("%x\n",writeyread_SPI(SpiMCP,DATASHIT));*/
+	array[3]=read_SPI(SpiMCP);
 	disable_CS(SpiMCP);
 
-    return lectura;   //todo chequear tpos.
+    return 1;   //todo chequear tpos.
 }
 bool Init_MCP (Spi_config_t Spi){
 	if(init_SPI(Spi)){
 		SpiMCP=Spi;
+
+		Reset_MCP();
+		//Read_MCP(0b11111110);
 		Write_MCP(CANCTRL,0b10000000);
+		Read_MCP(0b00001110);
+		Reset_MCP();
+
+
+		//Bit_Modify(CANCTRL,0b00000100,0b00000100);
+
 		Write_MCP(CNF1,0b00000111); //mando como dato  un baudrate de 1 y una sincronizacion de cero( SYNCHRONIZATION JUMP WIDTH)
 		Write_MCP(CNF2,0b00010101); // 1+5+2+2
 		Write_MCP(CNF3,0b00000010);
@@ -78,7 +97,11 @@ bool Init_MCP (Spi_config_t Spi){
 		Write_MCP(RXB1CTRL,0b01100001);//TODO falta la mascara
 		Write_MCP(CANINTF,0b00000000);//RESET ese Regsitro
 		Write_MCP(CANINTE,0b11111111);//habilito interrupciones
-		Write_MCP(CANCTRL,0b00000000);//lo pongo en modo Normal.*/
+		//Write_MCP(CANCTRL,0b00000000);//lo pongo en modo Normal.*/
+		printf("%x\n",array[0]);
+		printf("%x\n",array[1]);
+		printf("%x\n",array[2]);
+		printf("%x\n",array[3]);
 		return true;
 	}
 

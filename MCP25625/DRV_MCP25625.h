@@ -53,7 +53,8 @@ uint8_t Read_MCP (uint8_t address); //ojo como informo si se leyo erroneamente? 
  * @param mode INPUT, OUTPUT, INPUT_PULLUP or INPUT_PULLDOWN.
  */
 bool Init_MCP (Spi_config_t Spi);
-
+bool Reset_MCP(void);
+bool Bit_Modify(uint8_t address,uint8_t Mask,uint8_t bit);
 
 
 /*******************************************************************************
