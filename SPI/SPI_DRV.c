@@ -95,7 +95,7 @@ uint8_t writeyread_SPI(Spi_config_t Spi, uint16_t msg ){
     while (!(spi_pointer[Spi.module_spi]->SR & SPI_SR_TCF_MASK)) // si TCF = 1 (transferencia completa), sale del while
     {												// es decir espero a que se shifteen todos los bits del frame
     }
-   return (spi_pointer[Spi.module_spi]->POPR & SPI_POPR_RXDATA_MASK) >> SPI_POPR_RXDATA_SHIFT;
+   return (spi_pointer[Spi.module_spi]->POPR); //& SPI_POPR_RXDATA_MASK) >> SPI_POPR_RXDATA_SHIFT;
 		   //spi_pointer[Spi.module_spi]->POPR;
     //printf("%d\n",spi_pointer[Spi.module_spi]->POPR);
 
