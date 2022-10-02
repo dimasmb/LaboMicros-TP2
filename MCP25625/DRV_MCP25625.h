@@ -10,7 +10,9 @@
 /*******************************************************************************
  * INCLUDE HEADER FILES
  ******************************************************************************/
-//agregar libreria que incluye uint8_t
+#include <stdint.h>
+#include <stdbool.h>
+#include "SPI_DRV.h"
 /*******************************************************************************
  * CONSTANT AND MACRO DEFINITIONS USING #DEFINE
  ******************************************************************************/
@@ -50,7 +52,7 @@ uint8_t Read_MCP (uint8_t address); //ojo como informo si se leyo erroneamente? 
  * @param pin the pin whose mode you wish to set (according PORTNUM2PIN)
  * @param mode INPUT, OUTPUT, INPUT_PULLUP or INPUT_PULLDOWN.
  */
-void FuncionEXTra_MCP (pin_t pin, uint8_t mode);
+bool Init_MCP (Spi_config_t Spi);
 
 
 
