@@ -8,6 +8,7 @@
  * INCLUDE HEADER FILES
  ******************************************************************************/
 #include "FXOS8700CQ.h"
+#include "SysTick.h"
 #include <math.h>
 #include "i2cm.h"
 // +Incluir el header propio (ej: #include "template.h")+
@@ -55,6 +56,7 @@ static bool reading = false;
 // +ej: static int temperaturas_actuales[4];+
 
 static void delay(void);
+static void resetDelay(void);
 /*******************************************************************************
  *******************************************************************************
                         GLOBAL FUNCTION DEFINITIONS
@@ -66,6 +68,43 @@ int accel_mag_init(void)
   init_I2C(I2C_0);
   static uint8_t databyte;
   static uint8_t reg8;
+
+  //*********************START RESET****************************************
+  /*******************
+  //ACCELEROMETER CONTROL REG2
+  ***************************/
+  // write 0100 0000 = 0x00 to accelerometer control register 2 for reset
+  //The host application should allow 1 ms between issuing a software (setting rst bit) or hardware (pulsing RST
+  //pin) reset and attempting communications with the device over the I2C or SPI interfaces.
+  //Note: The I2C and SPI communication systems are also reset to avoid corrupted data transactions. On
+  //issuing a software reset command over an I2C interface, the device immediately resets and does not send
+  //any acknowledgment (ACK) of the written byte to the master. The host application has to implement the I2C
+  //driver in such a way that it does not look for an ACK following a soft reset command.
+  databyte = 0x40;
+  uint8_t reg16[] = {FXOS8700CQ_CTRL_REG2, databyte};
+  i2cSimpleTransaction((uint8_t)FXOS8700CQ_SLAVE_ADDR, MODE_W, 2, &(reg16[0]));
+  while(i2c_is_busy());
+  resetDelay();
+
+  //*************************************************************
+  /*******************
+  //MAGNETOMETER CONTROL REG1
+  ***********************************/
+  // write 0101 1111 = 0x1F to magnetometer control register 1
+  // [7]: m_acal=0 --> auto calibration disabled
+  // [6]: m_rst=1 --> one-shot magnetic reset
+  // [5]: m_ost=0 --> no one-shot magnetic measurement
+  // [4-2]: m_os=111=7 --> Oversample Ratio (OSR) 2x oversampling (for 800Hz) to reduce magnetometer noise
+  // [1-0]: m_hms=11=3 --> select hybrid mode with accel and magnetometer activ
+  
+  databyte = 0x5F;
+  reg16[0] = FXOS8700CQ_M_CTRL_REG1;
+  reg16[1] = databyte;
+  i2cSimpleTransaction((uint8_t)FXOS8700CQ_SLAVE_ADDR, MODE_W, 2, reg16);
+  while(i2c_is_busy());
+  resetDelay();
+  //*********************RESET FINISHED****************************************
+  
   /* **************************
     read and check the FXOS8700CQ WHOAMI register
   *********************/
@@ -77,7 +116,6 @@ int accel_mag_init(void)
   {
     return (init_ERROR);
   }
-
   
   //*************************************************************
   /*******************
@@ -88,12 +126,13 @@ int accel_mag_init(void)
   // [7-1] = 0000 000 --> Sleep Rate: 50Hz ; Output Data Rate (ODR): 800Hz (400Hz for Hybrid)
   // [0]: active = 0 --> stanby mode
   databyte = 0x00;
-  uint8_t reg16[] = {FXOS8700CQ_CTRL_REG1, databyte};
+  reg16[0] = FXOS8700CQ_CTRL_REG1;
+  reg16[1] = databyte;
   i2cSimpleTransaction((uint8_t)FXOS8700CQ_SLAVE_ADDR, MODE_W, 2, &(reg16[0]));
   while(i2c_is_busy());
   delay();
-  //*************************************************************
-  /*******************
+
+ /*******************
   //MAGNETOMETER CONTROL REG1
   ***********************************/
   // write 0001 1111 = 0x1F to magnetometer control register 1
@@ -116,7 +155,6 @@ int accel_mag_init(void)
   while(i2c_is_busy());
   delay();
 
-  //*************************************************************
   /*******************
   //MAGNETOMETER CONTROL REG2
   ************************************/
@@ -234,7 +272,7 @@ angular_data_t get_angles(SRAWDATA *pAccelData, SRAWDATA *pMagnData)
   data_ang.pitch = 180 * atan2(pAccelData->y, sqrt(pAccelData->x*pAccelData->x + pAccelData->z*pAccelData->z))/M_PI;
   int16_t mag_x = pMagnData->x*cos(data_ang.roll) + pMagnData->y*sin(data_ang.pitch)*sin(data_ang.roll) + pMagnData->z*cos(data_ang.pitch)*sin(data_ang.roll);
   int16_t mag_y = pMagnData->y * cos(data_ang.pitch) - pMagnData->z * sin(data_ang.pitch);
-  data_ang.yaw = 180 * atan2(-mag_y,mag_x)/M_PI;
+  data_ang.yaw = 180 * atan(-mag_y,mag_x)/M_PI;
 
   return data_ang;
 }
@@ -247,6 +285,15 @@ angular_data_t get_angles(SRAWDATA *pAccelData, SRAWDATA *pMagnData)
 static void delay(void)
 {
 	int cont=100;
+	while(cont)
+	{
+	  cont--;
+	}
+}
+
+static void resetDelay(void)
+{
+	int cont=10000;
 	while(cont)
 	{
 	  cont--;
