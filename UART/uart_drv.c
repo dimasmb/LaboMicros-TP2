@@ -3,19 +3,19 @@
 
 #define UART_HAL_DEFAULT_BAUDRATE 1000
 
-#define BUFLEN 125
+#define BUFLEN 3000
 
 static char buffer[BUFLEN];
-static char* input_pointer = &buffer;
-static char* output_pointer = &buffer;
+static int input_index = 0;
+static int output_index = 0;
 
+static int distance = BUFLEN;
 
 
 void UART_Init (void){
 	//Clock gating
 	SIM->SCGC4 |= SIM_SCGC4_UART0_MASK;
-	SIM->SCGC4 |= SIM_SCGC4_UART1_MASK;
-	SIM->SCGC4 |= SIM_SCGC4_UART3_MASK;
+
 
 	//Configure UART0 TX and RX PINS
 
@@ -24,12 +24,9 @@ void UART_Init (void){
 	PORTB->PCR[UART0_TX_PIN]=0x0; //Clear all bits
 	PORTB->PCR[UART0_TX_PIN]|=PORT_PCR_MUX(3); //Set MUX to UART0
 	PORTB->PCR[UART0_TX_PIN]|=PORT_PCR_IRQC(0); //Disable Port interrupts
-	PORTA->PCR[2] = 0;
-	PORTA->PCR[2] |= PORT_PCR_MUX(2);
-	PORTA->PCR[2] |= PORT_PCR_IRQC(0);
 
-	//Dejo el baudrate en 9600;
-	UART_SetBaudRate(UART0, 9600);
+	//Dejo el baudrate en 38400;
+	UART_SetBaudRate(UART0, 115200);
 
 	//Habilitamos UART como transmisor
 	UART0->C2 |= (UART_C2_TE_MASK | UART_C2_TIE_MASK);
@@ -52,22 +49,24 @@ void disable_UART_int(){
 }
 
 
-static bool err = false;
 
 __ISR__ UART0_RX_TX_IRQHandler (void)
 {
 
 	 if(((UART0->S1) & UART_S1_TDRE_MASK) !=0){ //Puedo Transmitir ?
-		 if(output_pointer==input_pointer){
+		 if(distance==BUFLEN){
 		 			 disable_UART_int();
 		 }
 		 else{
 
-			 UART0->D = *output_pointer; // Transmito '!'
-			 output_pointer++;
-			 if (output_pointer== &buffer + BUFLEN){
-				 output_pointer=&buffer;
-			 }
+			UART0->D = buffer[output_index]; // Transmito '!'
+			if(output_index==BUFLEN-1){
+				output_index=0;
+			}
+			else{
+				output_index++;
+			}
+			distance++;
 
 		 }
 
@@ -78,7 +77,7 @@ __ISR__ UART0_RX_TX_IRQHandler (void)
 
 __ISR__ UART0_ERR_IRQHandler(void)
 {
-	err=true;
+
 }
 
 
@@ -106,15 +105,20 @@ uart-> C4 = (uart->C4 & ~UART_C4_BRFA_MASK) | UART_C4_BRFA(brfa);
 
 void UART_Send_Data(unsigned char *tx_data, int datalen)
 {
-
-	for (int i=0; i<datalen; i++){
-		*input_pointer=*(tx_data+i);
-		input_pointer++;
-		if (input_pointer== &buffer + BUFLEN){
-			input_pointer=&buffer;
+	if(distance>80){
+		for(int i=0; i<datalen; i++){
+			buffer[input_index]=tx_data[i];
+			if(input_index==BUFLEN-1){
+				input_index=0;
+			}
+			else{
+				input_index++;
+			}
+			distance--;
 		}
+		enable_UART_int();
 	}
 
-	enable_UART_int();
+
 
 }
