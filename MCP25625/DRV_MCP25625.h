@@ -48,13 +48,26 @@ bool Write_MCP (uint8_t address, uint8_t data);
 uint8_t Read_MCP (uint8_t address); //ojo como informo si se leyo erroneamente? -> pasar lugar a donde escribir y el return dejar pa chequear
 
 /**
- * @brief Configures the specified pin to behave either as an input or an output
- * @param pin the pin whose mode you wish to set (according PORTNUM2PIN)
- * @param mode INPUT, OUTPUT, INPUT_PULLUP or INPUT_PULLDOWN.
+ * @brief Funcion que inicializa el MCP , sigue un serie de paso detallos en el .c
+ * @param se le pasa las configuraciones de Spi , para q te lo inicialice direnctamente alli
+ * @return bool
  */
 bool Init_MCP (Spi_config_t Spi);
+/**
+ * @brief Se resetea la configuracion de MCP, es una unica función xq tiene una trama distinta
+ * @return bool
+ */
 bool Reset_MCP(void);
+
+
+
 bool Bit_Modify(uint8_t address,uint8_t Mask,uint8_t bit);
+
+/**
+ * @brief	Funcion para acceder a los datos
+ * @return datos mandados desde placa Can
+ */
+uint32_t Recepcion(void);
 
 
 /*******************************************************************************

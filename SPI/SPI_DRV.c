@@ -95,14 +95,11 @@ uint8_t writeyread_SPI(Spi_config_t Spi, uint16_t msg ){
     while (!(spi_pointer[Spi.module_spi]->SR & SPI_SR_TCF_MASK)) // si TCF = 1 (transferencia completa), sale del while
     {												// es decir espero a que se shifteen todos los bits del frame
     }
-   return (spi_pointer[Spi.module_spi]->POPR); //& SPI_POPR_RXDATA_MASK) >> SPI_POPR_RXDATA_SHIFT;
-		   //spi_pointer[Spi.module_spi]->POPR;
-    //printf("%d\n",spi_pointer[Spi.module_spi]->POPR);
-
+   return (spi_pointer[Spi.module_spi]->POPR);
 }
 uint32_t read_SPI(Spi_config_t Spi){
 	return (spi_pointer[Spi.module_spi]->POPR & SPI_POPR_RXDATA_MASK) >> SPI_POPR_RXDATA_SHIFT ;
-	//return(spi_pointer[Spi.module_spi]->POPR |=);
+
 }
 void disable_CS(Spi_config_t Spi ){
 	uint8_t msg=0b00000000;
@@ -125,19 +122,11 @@ void disable_CS(Spi_config_t Spi ){
     while (!(spi_pointer[Spi.module_spi]->SR & SPI_SR_TCF_MASK)) // si TCF = 1 (transferencia completa), sale del while
     {												// es decir espero a que se shifteen todos los bits del frame
     }
-    //spi_pointer[Spi.module_spi]->POPR;
-    //printf("%d\n",spi_pointer[Spi.module_spi]->POPR);
+    spi_pointer[Spi.module_spi]->POPR;
+
 	return;
 }
-/*void disable_CS(Spi_config_t Spi){
-	uint32_t PUSHR_Value = 0;
-	PUSHR_Value&=~SPI_PUSHR_CONT(1); //apago el keepcs
-	PUSHR_Value &=~SPI_PUSHR_PCS(1);	//apago el chip selec.
-	PUSHR_Value	|=SPI_PUSHR_EOQ(1);
-	PUSHR_Value |=SPI_PUSHR_CTCNT(1);
-	spi_pointer[Spi.module_spi]->PUSHR = PUSHR_Value;
 
-}*/
 bool SPI_TransferComplet(Spi_config_t Spi)
 {
 	return (spi_pointer[Spi.module_spi]->SR & SPI_SR_TCF_MASK) >> SPI_SR_TCF_SHIFT;
@@ -174,7 +163,6 @@ void init_Clk_Nvinc(Module_Spi_t module){ //se habilita el clock gating de los S
 }
 bool config_CTAR(Spi_config_t Spi){		//Se configuran los atributos del spi elegido.
 int ctrl=Spi.CONT_CLK;
-//ctrl=1;
 if (Spi.mode<Disable)
 {
 	if(Spi.mode == Master ){		// CTAR es una union de dos arreglos , en la parte ALTA se configura el master mode(lo cambio pa usar sck continuo)
@@ -194,7 +182,6 @@ if (Spi.mode<Disable)
 		 spi_pointer[Spi.module_spi]->CTAR[ctrl] |= SPI_CTAR_PDT(0b11); //Delay entre transferencias 5us
 		 spi_pointer[Spi.module_spi]->CTAR[ctrl] |=SPI_CTAR_DT(0b0010);
 
-		// spi_pointer[Spi.module_spi]->CTAR[1] |= (spi_pointer[Spi.module_spi]->CTAR[1]& ~SPI_CTAR_BR_MASK) | SPI_CTAR_BR(0b1001);
 	}
 	else{
 		spi_pointer[Spi.module_spi]->CTAR[0]=0;

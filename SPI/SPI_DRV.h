@@ -56,16 +56,32 @@ typedef struct {
  ******************************************************************************/
 
 /**
- * @brief Configures the specified pin to behave either as an input or an output
- * @param pin the pin whose mode you wish to set (according PORTNUM2PIN)
- * @param mode INPUT, OUTPUT, INPUT_PULLUP or INPUT_PULLDOWN.
+ * @brief Se inicializa el modulo Spi de la MCU ,con todos los parametros aportados por el usuario
+ * @param Se le pasa una variable tipo Spi_config_t.
+ * @return bool , true en el caso de ser exitosa
  */
 bool init_SPI (Spi_config_t Spi);
-uint8_t  writeyread_SPI(Spi_config_t Spi, uint16_t msg );
-//void writeENDQ_SPI(Spi_config_t Spi, uint16_t msg );
+
+/**
+ * @brief Función que escribe y lee
+ * @param se le pasa Spi_config_t y el mensaje a transmitir .
+ * @return void
+ */
+uint8_t  writeyread_SPI(Spi_config_t Spi, uint16_t msg );	//todo : Arreglar el void
+
+/**
+ * @brief Se inicializa el modulo Spi de la MCU ,con todos los parametros aportados por el usuario
+ * @param Se le pasa una variable tipo Spi_config_t.
+ * @return bool , true en el caso de ser exitosa
+ */
 uint32_t read_SPI(Spi_config_t Spi);
+
+/**
+ * @brief Funcion para deshabilitar el cs de la transmición
+ * @param Se le pasa le spi
+ */
 void disable_CS(Spi_config_t Spi);
-bool SPI_TransferComplet(Spi_config_t Spi);
+bool SPI_TransferComplet(Spi_config_t Spi);//todo chequear pa eliminar
 
 
 
