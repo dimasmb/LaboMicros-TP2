@@ -28,6 +28,12 @@
 #define CNF3	0b00101000 //
 
 #define Filter1	0b00000000 // 00h, 04h, 08h, 10h, 14h, 18h
+//Mask para el buffer 0
+#define RXM0SIDH 0b00100000
+#define RXM0SIDL 0b00100001
+//Filtros pal bffer
+#define RXF0SIDH 0b00000000
+#define RXF0SIDL 0b00000001
 
 #define RXB0CTRL 0b01100000//
 #define RXB1CTRL 0b01110000//
@@ -112,19 +118,32 @@ uint32_t Read_MCP (uint8_t address){
 bool Init_MCP (Spi_config_t Spi){
 	if(init_SPI(Spi)){
 		SpiMCP=Spi;
-		//PASOS PARA LA INICIALIZACION DE LA PLACA CAN
-		Reset_MCP();
 		//Write_MCP(CANCTRL,0b10000000); //TEST de para probar recepcion
 		//Read_MCP(0b00001110);
 		//Reset_MCP();
+
+		//PASOS PARA LA INICIALIZACION DE LA PLACA CAN
+		//SE RETEA Y SE PONE UN MODO CONFIGURACION
+		Reset_MCP();
+		//CONFIGURACION CON RESPECTO A LOS TPOS DE CONFIGURACION
 		Write_MCP(CNF1,0b00000111); //mando como dato  un baudrate de 1 y una sincronizacion de cero( SYNCHRONIZATION JUMP WIDTH)
 		Write_MCP(CNF2,0b00010101); // 1+5+2+2
 		Write_MCP(CNF3,0b00000010);
-		Write_MCP(RXB0CTRL,0b01100001);
-		Write_MCP(RXB1CTRL,0b01100001);//TODO falta la mascara
-		Write_MCP(CANINTF,0b00000000);//RESET ese Regsitro
-		Write_MCP(CANINTE,0b11111111);//habilito interrupciones
-		Write_MCP(CANCTRL,0b00000000);//lo pongo en modo Normal.*/
+		//CONFIGURA PARA QUE EL TX0 ANDE
+		Write_MCP(TXRTSCTRL,0b00000001); 	//No lo dice la filmina del Profe, pero si en el datashet ,entonces?
+		//CONFIGURACION DE LAS MASCARAS Y FILTROS QUE VAN A ACTUAR SOBRE EL BUFFER RX
+		Write_MCP(RXF0SIDH,0b00010000);	//se setea filtro
+		Write_MCP(RXF0SIDL,0b00000000);										//filter = 0001 0000 0000 0000 ->Busco que solo empiece con el encabezado 0x100
+		Write_MCP(RXM0SIDH,0b11111111);	//Se setea la mascara parte alt		//Mask=    1111 1111 1111 0000 -> con cero no chequea ese bit.
+		Write_MCP(RXM0SIDL,0b11110000);	//se setea la mascara parte baja
+		//CONFIGURO EL BUFFER DE RECEPCION, ACTIVO MASCARAS Y FILTROS RXF0 Y RXM0
+		Write_MCP(RXB0CTRL,0b00000000);//Se activa mask y filter(RXF0),
+		Write_MCP(RXB1CTRL,0b00000000);//TODO falta la mascara
+		//HABILITO INTERRUPCIONES SOLO SOBRE TX0 Y RX0
+		//Write_MCP(CANINTF,0b00000000);//RESET ese Regsitro
+		Write_MCP(CANINTE,0b00000101);
+		//SE COLOCA EN MODO NORMAL
+		Write_MCP(CANCTRL,0b00001000);//lo pongo en modo Normal,ABAT=0,One shot,CLKOUT disable
 		return true;
 	}
 
@@ -168,7 +187,7 @@ bool RecibCANBx(uint8_t *data){
 		data[3]=Read_MCP(RXB0D0);
 		data[4]=Read_MCP(RXB0D1);
 		data[5]=Read_MCP(RXB0D2);
-		data[6]=Read_MCP(RXB0D3);y
+		data[6]=Read_MCP(RXB0D3);
 		data[7]=Read_MCP(RXB0D4);
 		Bit_Modify(CANINTF,0b00000001,0b00000000);
 		salida=true;
