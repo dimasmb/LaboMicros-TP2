@@ -67,14 +67,35 @@
 
 
 //ID
-#define SIDH 0x0C // id high
-#define SIDL 0xE0 //id low
+#define SIDH 0b10000000 // id high
+#define SIDL 0b00000011 //id low
 
 
 /*******************************************************************************
  * FUNCTION PROTOTYPES FOR PRIVATE FUNCTIONS WITH FILE LEVEL SCOPE
  ******************************************************************************/
 Spi_config_t SpiMCP;
+/**
+ * @brief Write any register of the Controller Can.
+ * @param address Address of register that i am going to write
+ * @param data Information that i´m going to trasmit
+ * @return if the access was successfull, it return true. Else false
+ */
+bool Write_MCP (uint8_t address, uint8_t data);
+/**
+ * @brief Read any register of the controller can
+ * @param address Address of register that i am going to write
+ * @return information of the register request
+ */
+uint32_t Read_MCP (uint8_t address); //ojo como informo si se leyo erroneamente? -> pasar lugar a donde escribir y el return dejar pa chequear
+
+bool Bit_Modify(uint8_t address,uint8_t Mask,uint8_t bit);
+/**
+ * @brief Se resetea la configuracion de MCP, es una unica función xq tiene una trama distinta
+ * @return bool
+ */
+bool Reset_MCP(void);
+
 bool CheckTXREQ(void); 	//Funcion para chequear si tengo permitido escribir
 bool CheckRx(void);		//Lee si hay algo e el buffer
 bool RtsToSend(int buffer);	//Avisa que estamos para enviar.
@@ -84,37 +105,9 @@ bool RtsToSend(int buffer);	//Avisa que estamos para enviar.
  *******************************************************************************
  ******************************************************************************/
 static uint32_t array[4];	//Arreglo que se usa para guardar los datos leidos.
-bool Reset_MCP(){
-	writeyread_SPI(SpiMCP,RESET);
-	disable_CS(SpiMCP);
-	return true;
-}
-
-bool Write_MCP (uint8_t address, uint8_t data){  //instruccion + Direccion+ Data = 1byte +1byte+1byte
-	writeyread_SPI(SpiMCP,WRITE);		//se de 8bits
-	writeyread_SPI(SpiMCP,address);
-	writeyread_SPI(SpiMCP,data);
-	disable_CS(SpiMCP);					//se levanta el cs
-    return true;
-}
-bool Bit_Modify(uint8_t address,uint8_t Mask,uint8_t bit){
-	writeyread_SPI(SpiMCP,0b00000101);
-	writeyread_SPI(SpiMCP,address);
-	writeyread_SPI(SpiMCP,Mask);
-	writeyread_SPI(SpiMCP,bit);
-	disable_CS(SpiMCP);
-	return true;
-}
 
 
-uint32_t Read_MCP (uint8_t address){
-   	array[0]=writeyread_SPI(SpiMCP,READ);
-	array[1]=writeyread_SPI(SpiMCP,address);
-	array[2]=writeyread_SPI(SpiMCP,DATASHIT);
-	array[3]=read_SPI(SpiMCP);
-	disable_CS(SpiMCP);
-    return (array[2]);
-}
+
 bool Init_MCP (Spi_config_t Spi){
 	if(init_SPI(Spi)){
 		SpiMCP=Spi;
@@ -171,16 +164,17 @@ bool StarCANTx(uint8_t *data){		//solo se puede mandar de a 5 bits
 bool RtsToSend(int buffer){
 	bool salida=false;
 	switch(buffer){
-	case 0:writeyread_SPI(SpiMCP,RTSTOSENDT0);salida=true;break;
-	case 1:writeyread_SPI(SpiMCP,RTSTOSENDT1);salida=true;break;
-	case 2:writeyread_SPI(SpiMCP,RTSTOSENDT2);salida=true;break;
+	case 0:writeyread_SPI(SpiMCP,RTSTOSENDT0);disable_CS(SpiMCP);salida=true;break;
+	case 1:writeyread_SPI(SpiMCP,RTSTOSENDT1);disable_CS(SpiMCP);salida=true;break;
+	case 2:writeyread_SPI(SpiMCP,RTSTOSENDT2);disable_CS(SpiMCP);salida=true;break;
 	default:salida=false; break;
 	}
 	return salida;
 }
 bool RecibCANBx(uint8_t *data){
 	bool salida=false;
-	if(CheckRx()){
+	int i=0;
+	if(i==CheckRx()){
 		data[0]=Read_MCP(RXB0SIDH);
 		data[1]=Read_MCP(RXB0SIDL);
 		data[2]=Read_MCP(RXB0DLC);
@@ -200,6 +194,37 @@ bool RecibCANBx(uint8_t *data){
                         LOCAL FUNCTION DEFINITIONS
  *******************************************************************************
  ******************************************************************************/
+bool Reset_MCP(){
+	writeyread_SPI(SpiMCP,RESET);
+	disable_CS(SpiMCP);
+	return true;
+}
+
+bool Write_MCP (uint8_t address, uint8_t data){  //instruccion + Direccion+ Data = 1byte +1byte+1byte
+	writeyread_SPI(SpiMCP,WRITE);		//se de 8bits
+	writeyread_SPI(SpiMCP,address);
+	writeyread_SPI(SpiMCP,data);
+	disable_CS(SpiMCP);					//se levanta el cs
+    return true;
+}
+bool Bit_Modify(uint8_t address,uint8_t Mask,uint8_t bit){
+	writeyread_SPI(SpiMCP,0b00000101);
+	writeyread_SPI(SpiMCP,address);
+	writeyread_SPI(SpiMCP,Mask);
+	writeyread_SPI(SpiMCP,bit);
+	disable_CS(SpiMCP);
+	return true;
+}
+
+uint32_t Read_MCP (uint8_t address){
+   	array[0]=writeyread_SPI(SpiMCP,READ);
+	array[1]=writeyread_SPI(SpiMCP,address);
+	array[2]=writeyread_SPI(SpiMCP,DATASHIT);
+	array[3]=read_SPI(SpiMCP);
+	disable_CS(SpiMCP);
+    return (array[2]);
+}
+
 bool CheckTXREQ(void){
 	bool ret =true;
 	uint8_t tx_register=Read_MCP(TXB0CTRL);		//todo posible error
