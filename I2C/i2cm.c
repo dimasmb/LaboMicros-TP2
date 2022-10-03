@@ -112,6 +112,9 @@ void I2C_init(i2cx num)
   I2C_x[i2c_num]->C1 |= I2C_C1_IICIE_MASK; //enable interrputs
   I2C_x[i2c_num]->C1 |= I2C_C1_IICEN_MASK; //enable i2c
 
+  //I2C_x[i2c_num]->C1 |= I2C_C1_MST_MASK;
+  //I2C_x[i2c_num]->C1 &= ~I2C_C1_MST_MASK;  //STOP
+
   if(!num) NVIC_EnableIRQ(I2C0_IRQn);
   else NVIC_EnableIRQ(I2C1_IRQn);
 }

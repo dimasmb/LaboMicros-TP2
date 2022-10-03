@@ -268,14 +268,42 @@ bool is_accel_data_ready(SRAWDATA *pAccelData, SRAWDATA *pMagnData)
 angular_data_t raw_2_angles(SRAWDATA *pAccelData, SRAWDATA *pMagnData)
 {
   angular_data_t data_ang;
-
-  data_ang.roll = (180/M_PI) * atan2(-pAccelData->x, pAccelData->z);
-  data_ang.pitch = (180/M_PI) * atan2(-pAccelData->y, sqrt(pAccelData->x*pAccelData->x + pAccelData->z*pAccelData->z));
   
+  data_ang.roll = 180 * atan(-pAccelData->x/ sqrt(pAccelData->y*pAccelData->y + pAccelData->z*pAccelData->z))/M_PI;
+  data_ang.pitch = 180 * atan(pAccelData->y/ sqrt(pAccelData->x*pAccelData->x + pAccelData->z*pAccelData->z))/M_PI;
+
+  // data_ang.roll = (180/M_PI) * atan2(pAccelData->x, pAccelData->z);
+  // data_ang.pitch = (180/M_PI) * atan2(-pAccelData->y, sqrt(pAccelData->x*pAccelData->x + pAccelData->z*pAccelData->z));
   int16_t mag_x = pMagnData->x*cos(data_ang.roll) + pMagnData->y*sin(data_ang.pitch)*sin(data_ang.roll) + pMagnData->z*cos(data_ang.pitch)*sin(data_ang.roll);
   int16_t mag_y = pMagnData->y * cos(data_ang.pitch) - pMagnData->z * sin(data_ang.pitch);
   data_ang.yaw = 180 * atan(-mag_y/mag_x)/M_PI;
+  /*
+  If in Quadrant 1 = arctan (AX/AY)
+  If in Quadrant 2 = arctan (AX/AY) + 180
+  If in Quadrant 3 = arctan (AX/AY) + 180
+  If in Quadrant 4 = arctan (AX/AY) + 360
+  */
 
+  if(pAccelData->z <0)
+  {
+    if((pAccelData->y > 0))
+    {
+      data_ang.pitch = 180 - abs(data_ang.pitch);
+    }
+    else
+    {
+      data_ang.pitch = abs(data_ang.pitch) - 179;
+    }
+    
+    if((pAccelData->x < 0))
+    {
+      data_ang.roll = 180 - abs(data_ang.roll);
+    }
+    else
+    {
+      data_ang.roll = abs(data_ang.roll) - 179;
+    }
+  }
   return data_ang;
 }
 /*******************************************************************************
