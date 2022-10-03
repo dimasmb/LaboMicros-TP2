@@ -173,8 +173,7 @@ bool RtsToSend(int buffer){
 }
 bool RecibCANBx(uint8_t *data){
 	bool salida=false;
-	int i=0;
-	if(i==CheckRx()){
+	if(CheckRx()){
 		data[0]=Read_MCP(RXB0SIDH);
 		data[1]=Read_MCP(RXB0SIDL);
 		data[2]=Read_MCP(RXB0DLC);
@@ -187,6 +186,12 @@ bool RecibCANBx(uint8_t *data){
 		salida=true;
 	}
 	return salida;
+}
+
+bool test (void){
+	Bit_Modify(CANINTF,0b00000001,0b00000001);
+	bool valid=CheckRx();
+	return valid;
 }
 
 /*******************************************************************************
@@ -227,9 +232,9 @@ uint32_t Read_MCP (uint8_t address){
 
 bool CheckTXREQ(void){
 	bool ret =true;
-	uint8_t tx_register=Read_MCP(TXB0CTRL);		//todo posible error
+	uint8_t tx_register=Read_MCP(TXB0CTRL);
 	uint8_t tem=tx_register;
-	if(8==(tem<<5)){
+	if(128==(tem<<5)){
 		ret= false;
 	}
 	return ret;
@@ -238,7 +243,7 @@ bool CheckRx(void){
 	bool salida=false;
 	uint8_t rx_register=Read_MCP(CANINTF);
 	uint8_t tem=rx_register;
-	if(8==(tem<<7)){
+	if(128==(tem<<7)){
 		salida= true;
 	}
 

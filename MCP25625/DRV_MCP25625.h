@@ -48,6 +48,8 @@ uint32_t Recepcion(void);
 bool StarCANTx(uint8_t *data);
 
 bool RecibCANBx(uint8_t *data);
+//TEST Hecho sobre el bit modify
+bool test (void);
 
 /*******************************************************************************
  ******************************************************************************/
