@@ -45,7 +45,7 @@ bool Write_MCP (uint8_t address, uint8_t data);
  * @param address Address of register that i am going to write
  * @return information of the register request 
  */
-uint8_t Read_MCP (uint8_t address); //ojo como informo si se leyo erroneamente? -> pasar lugar a donde escribir y el return dejar pa chequear
+uint32_t Read_MCP (uint8_t address); //ojo como informo si se leyo erroneamente? -> pasar lugar a donde escribir y el return dejar pa chequear
 
 /**
  * @brief Funcion que inicializa el MCP , sigue un serie de paso detallos en el .c
@@ -69,6 +69,9 @@ bool Bit_Modify(uint8_t address,uint8_t Mask,uint8_t bit);
  */
 uint32_t Recepcion(void);
 
+bool StarCANTx(uint8_t *data);
+
+bool RecibCANBx(uint8_t *data);
 
 /*******************************************************************************
  ******************************************************************************/
