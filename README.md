@@ -1,4 +1,4 @@
 # LaboMicros-TP2
 
-repo de drivers para labo de micros
-para Frdm K64f dev. board
+- Repo de drivers para labo de micros
+- Para Frdm K64f dev. board
