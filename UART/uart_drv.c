@@ -3,16 +3,24 @@
 
 #define UART_HAL_DEFAULT_BAUDRATE 1000
 
-#define BUFLEN 3000
+#define BUFLEN 1000
 
-static char buffer[BUFLEN];
-static int input_index = 0;
-static int output_index = 0;
+typedef struct {
+	char buffer[BUFLEN];
+	int input_index;
+	int output_index;
+	int distance;
+} circbuffer_t;
 
-static int distance = BUFLEN;
+static circbuffer_t outBuffer = {.input_index = 0,
+								.output_index = 0,
+								.distance = BUFLEN};
 
+static circbuffer_t inBuffer = {.input_index = 0,
+								.output_index = 0,
+								.distance = BUFLEN};
 
-void UART_Init (void){
+void UART_Init (int baudrate){
 	//Clock gating
 	SIM->SCGC4 |= SIM_SCGC4_UART0_MASK;
 
@@ -26,10 +34,10 @@ void UART_Init (void){
 	PORTB->PCR[UART0_TX_PIN]|=PORT_PCR_IRQC(0); //Disable Port interrupts
 
 	//Dejo el baudrate en 38400;
-	UART_SetBaudRate(UART0, 115200);
+	UART_SetBaudRate(UART0, baudrate);
 
 	//Habilitamos UART como transmisor
-	UART0->C2 |= (UART_C2_TE_MASK | UART_C2_TIE_MASK);
+	UART0->C2 |= (UART_C2_TE_MASK | UART_C2_TIE_MASK | UART_C2_RE_MASK | UART_C2_RIE_MASK);
 
 }
 
@@ -53,30 +61,48 @@ void disable_UART_int(){
 __ISR__ UART0_RX_TX_IRQHandler (void)
 {
 
-	 if(((UART0->S1) & UART_S1_TDRE_MASK) !=0){ //Puedo Transmitir ?
-		 if(distance==BUFLEN){
-		 			 disable_UART_int();
-		 }
-		 else{
 
-			UART0->D = buffer[output_index]; // Transmito '!'
-			if(output_index==BUFLEN-1){
-				output_index=0;
+	if(((UART0->S1)& UART_S1_RDRF_MASK)){
+		 char temp_ch=UART0->D;
+		 inBuffer.buffer[inBuffer.input_index]=temp_ch;
+		 if((inBuffer.input_index + 1) != BUFLEN && (inBuffer.input_index + 1) != inBuffer.output_index){
+			 inBuffer.input_index++;
+			 inBuffer.distance--;
+		 }
+		 else if((inBuffer.input_index + 1) == BUFLEN){
+			 inBuffer.input_index = 0;
+		 }
+	}
+	else if(((UART0->S1) & UART_S1_TDRE_MASK) !=0){
+		if(outBuffer.distance==BUFLEN){
+			disable_UART_int();
+		}
+		else{
+			UART0->D = outBuffer.buffer[outBuffer.output_index];
+			if(outBuffer.output_index==BUFLEN-1){
+				outBuffer.output_index=0;
 			}
 			else{
-				output_index++;
+				outBuffer.output_index++;
 			}
-			distance++;
+		outBuffer.distance--;
 
-		 }
-
-
-	 }
-
+		}
+	}
 }
 
 __ISR__ UART0_ERR_IRQHandler(void)
 {
+
+
+	if(outBuffer.input_index != 0){
+		outBuffer.input_index--;
+	}
+	else{
+		outBuffer.input_index==BUFLEN-1;
+	}
+	outBuffer.distance++;
+	enable_UART_int();
 
 }
 
@@ -105,20 +131,36 @@ uart-> C4 = (uart->C4 & ~UART_C4_BRFA_MASK) | UART_C4_BRFA(brfa);
 
 void UART_Send_Data(unsigned char *tx_data, int datalen)
 {
-	if(distance>80){
+	if(outBuffer.distance>1){
 		for(int i=0; i<datalen; i++){
-			buffer[input_index]=tx_data[i];
-			if(input_index==BUFLEN-1){
-				input_index=0;
+			outBuffer.buffer[outBuffer.input_index]=tx_data[i];
+			if(outBuffer.input_index==BUFLEN-1){
+				outBuffer.input_index=0;
 			}
 			else{
-				input_index++;
+				outBuffer.input_index++;
 			}
-			distance--;
+			outBuffer.distance++;
 		}
 		enable_UART_int();
 	}
 
+}
 
+bool inputEmpty(){
+	bool retval;
+	(inBuffer.distance!=BUFLEN)?(retval = false) : (retval = true);
+	return retval;
+}
 
+char retreiveInput(){
+	char newInput;
+	if(inBuffer.distance!=BUFLEN){
+		newInput = inBuffer.buffer[inBuffer.output_index];
+		(inBuffer.output_index+1<BUFLEN)?(inBuffer.output_index++):(inBuffer.output_index=0);
+		inBuffer.distance++;
+	}
+	else{
+		newInput = '\0';
+	}
 }
