@@ -38,6 +38,7 @@ void UART_Init (int baudrate){
 
 	//Habilitamos UART como transmisor
 	UART0->C2 |= (UART_C2_TE_MASK | UART_C2_TIE_MASK | UART_C2_RE_MASK | UART_C2_RIE_MASK);
+	UART0->C1 |= (UART_C1_PE_MASK | UART_C1_PT_MASK);
 
 }
 
