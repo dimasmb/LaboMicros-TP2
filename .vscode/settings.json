@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "spi_drv.h": "c",
+        "gpio.h": "c"
+    }
+}
